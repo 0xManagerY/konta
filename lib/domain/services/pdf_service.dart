@@ -3,6 +3,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:konta/data/local/database.dart';
 import 'package:konta/core/utils/number_to_words_fr.dart';
 import 'package:konta/core/utils/number_to_words_ar.dart';
+import 'package:konta/core/utils/logger.dart';
 
 class PdfService {
   static Future<pw.Document> generateInvoicePdf({
@@ -12,6 +13,12 @@ class PdfService {
     required List<InvoiceItem> items,
     required String languageCode,
   }) async {
+    Logger.debug('Generating PDF for invoice: ${invoice.number}', tag: 'PDF');
+    Logger.debug('Company: ${company.companyName}', tag: 'PDF');
+    Logger.debug('Customer: ${customer.name}', tag: 'PDF');
+    Logger.debug('Items count: ${items.length}', tag: 'PDF');
+    Logger.debug('Total: ${invoice.total}', tag: 'PDF');
+
     final pdf = pw.Document();
 
     final amountInWordsFr = FrenchNumberToWords.convert(invoice.total);
@@ -221,6 +228,7 @@ class PdfService {
       ),
     );
 
+    Logger.success('PDF generated successfully', tag: 'PDF');
     return pdf;
   }
 

@@ -1,3 +1,5 @@
+import 'package:konta/core/utils/logger.dart';
+
 class FrenchNumberToWords {
   static const _units = [
     '', // 0
@@ -36,6 +38,7 @@ class FrenchNumberToWords {
   ];
 
   static String convert(double number) {
+    Logger.debug('Converting number to French: $number', tag: 'PDF');
     if (number == 0) return 'zéro dirham';
 
     final parts = number.toStringAsFixed(2).split('.');
@@ -55,7 +58,9 @@ class FrenchNumberToWords {
       buffer.write(decPart == 1 ? ' centime' : ' centimes');
     }
 
-    return buffer.toString();
+    final result = buffer.toString();
+    Logger.debug('Converted to: $result', tag: 'PDF');
+    return result;
   }
 
   static String _convertInteger(int number) {

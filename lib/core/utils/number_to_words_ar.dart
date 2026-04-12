@@ -1,3 +1,5 @@
+import 'package:konta/core/utils/logger.dart';
+
 class ArabicNumberToWords {
   static const _units = [
     '', // 0
@@ -49,6 +51,7 @@ class ArabicNumberToWords {
   ];
 
   static String convert(double number) {
+    Logger.debug('Converting number to Arabic: $number', tag: 'PDF');
     if (number == 0) return 'صفر درهم';
 
     final parts = number.toStringAsFixed(2).split('.');
