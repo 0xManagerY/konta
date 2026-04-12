@@ -922,36 +922,65 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
   }
 
   Future<void> _previewPdf(Invoice invoice) async {
-    final db = ref.read(databaseProvider);
-    final userId = SupabaseService.currentUserId;
-    if (userId == null) return;
+    try {
+      final db = ref.read(databaseProvider);
+      final userId = SupabaseService.currentUserId;
+      if (userId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Utilisateur non connecté')),
+          );
+        }
+        return;
+      }
 
-    final profile = await (db.select(
-      db.profiles,
-    )..where((p) => p.id.equals(userId))).getSingleOrNull();
-    if (profile == null) return;
+      final profile = await (db.select(
+        db.profiles,
+      )..where((p) => p.id.equals(userId))).getSingleOrNull();
+      if (profile == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Profil non trouvé')));
+        }
+        return;
+      }
 
-    final customerRepo = ref.read(customerRepositoryProvider);
-    final customer = await customerRepo.getById(invoice.customerId);
-    if (customer == null) return;
+      final customerRepo = ref.read(customerRepositoryProvider);
+      final customer = await customerRepo.getById(invoice.customerId);
+      if (customer == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Client non trouvé')));
+        }
+        return;
+      }
 
-    final invoiceRepo = ref.read(invoiceRepositoryProvider);
-    final items = await invoiceRepo.getItems(invoice.id);
+      final invoiceRepo = ref.read(invoiceRepositoryProvider);
+      final items = await invoiceRepo.getItems(invoice.id);
 
-    final pdf = await PdfService.generateInvoicePdf(
-      company: profile,
-      customer: customer,
-      invoice: invoice,
-      items: items,
-      languageCode: 'fr',
-    );
-
-    if (mounted) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => PdfPreviewScreen(pdf: pdf, invoice: invoice),
-        ),
+      final pdf = await PdfService.generateInvoicePdf(
+        company: profile,
+        customer: customer,
+        invoice: invoice,
+        items: items,
+        languageCode: 'fr',
       );
+
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => PdfPreviewScreen(pdf: pdf, invoice: invoice),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erreur PDF: $e')));
+      }
     }
   }
 
