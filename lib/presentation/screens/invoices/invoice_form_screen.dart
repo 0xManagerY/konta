@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:konta/data/local/database.dart';
-import 'package:konta/data/repositories/invoice_repository.dart';
-import 'package:konta/data/repositories/product_repository.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
+import 'package:konta/presentation/providers/invoice_provider.dart';
+import 'package:konta/presentation/providers/product_provider.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 import 'package:konta/core/utils/logger.dart';
 import 'package:uuid/uuid.dart';
@@ -50,11 +50,10 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
   }
 
   Future<void> _loadProducts() async {
-    final db = ref.read(databaseProvider);
     final userId = SupabaseService.currentUserId;
     if (userId == null) return;
 
-    final products = await ProductRepository(db).getAll(userId);
+    final products = await ref.read(productRepositoryProvider).getAll(userId);
     if (mounted) {
       setState(() => _products = products);
     }
@@ -187,13 +186,12 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final db = ref.read(databaseProvider);
       final userId = SupabaseService.currentUserId;
 
       if (userId == null) throw Exception('Utilisateur non connecté');
 
-      final invoiceRepo = InvoiceRepository(db);
-      final productRepo = ProductRepository(db);
+      final invoiceRepo = ref.read(invoiceRepositoryProvider);
+      final productRepo = ref.read(productRepositoryProvider);
       final invoiceId = _existingInvoice?.id ?? const Uuid().v4();
       final number =
           _existingInvoice?.number ??

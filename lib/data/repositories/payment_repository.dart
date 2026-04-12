@@ -2,11 +2,13 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import 'package:konta/data/local/database.dart';
 import 'package:konta/core/utils/logger.dart';
+import 'package:konta/data/sync/sync_queue_helper.dart';
 
 class PaymentRepository {
   final AppDatabase _db;
+  final SyncQueueHelper _syncQueue;
 
-  PaymentRepository(this._db);
+  PaymentRepository(this._db, this._syncQueue);
 
   Future<List<Payment>> getAll() async {
     Logger.method('PaymentRepository', 'getAll');
@@ -76,6 +78,7 @@ class PaymentRepository {
           ),
         );
 
+    await _syncQueue.queueInsert('payments', id);
     Logger.success('Payment created: $id', tag: 'REPO');
     return id;
   }
@@ -95,12 +98,14 @@ class PaymentRepository {
         syncStatus: const Value('pending'),
       ),
     );
+    await _syncQueue.queueUpdate('payments', payment.id);
     Logger.success('Payment updated', tag: 'REPO');
   }
 
   Future<void> delete(String id) async {
     Logger.method('PaymentRepository', 'delete', {'id': id});
     Logger.db('DELETE', 'payments', {'id': id});
+    await _syncQueue.queueDelete('payments', id);
     await (_db.delete(_db.payments)..where((p) => p.id.equals(id))).go();
     Logger.success('Payment deleted', tag: 'REPO');
   }

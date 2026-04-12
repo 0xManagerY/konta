@@ -373,7 +373,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         description: _descriptionController.text.isNotEmpty
             ? _descriptionController.text
             : null,
-        receiptUrl: _receiptPath,
+        receiptLocalPath: _receiptPath,
         isDeductible: _isDeductible,
       );
 

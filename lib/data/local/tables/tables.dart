@@ -125,6 +125,8 @@ class Expenses extends Table {
   DateTimeColumn get date => dateTime()();
   TextColumn get description => text().nullable()();
   TextColumn get receiptUrl => text().named('receipt_url').nullable()();
+  TextColumn get receiptLocalPath =>
+      text().named('receipt_local_path').nullable()();
   BoolColumn get isDeductible =>
       boolean().named('is_deductible').withDefault(const Constant(true))();
   DateTimeColumn get createdAt => dateTime().named('created_at')();

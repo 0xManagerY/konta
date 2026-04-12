@@ -2,11 +2,13 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import 'package:konta/data/local/database.dart';
 import 'package:konta/core/utils/logger.dart';
+import 'package:konta/data/sync/sync_queue_helper.dart';
 
 class CustomerRepository {
   final AppDatabase _db;
+  final SyncQueueHelper _syncQueue;
 
-  CustomerRepository(this._db);
+  CustomerRepository(this._db, this._syncQueue);
 
   Future<List<Customer>> getAll(String userId) async {
     Logger.method('CustomerRepository', 'getAll', {'userId': userId});
@@ -36,6 +38,7 @@ class CustomerRepository {
       'name': customer.name,
     });
     await _db.into(_db.customers).insert(customer);
+    await _syncQueue.queueInsert('customers', customer.id);
     Logger.success('Customer inserted', tag: 'REPO');
   }
 
@@ -45,7 +48,9 @@ class CustomerRepository {
       'id': customer.id,
       'name': customer.name,
     });
-    await (_db.update(_db.customers)).write(
+    await (_db.update(
+      _db.customers,
+    )..where((c) => c.id.equals(customer.id))).write(
       CustomersCompanion(
         name: Value(customer.name),
         ice: Value(customer.ice),
@@ -64,12 +69,14 @@ class CustomerRepository {
         syncStatus: const Value('pending'),
       ),
     );
+    await _syncQueue.queueUpdate('customers', customer.id);
     Logger.success('Customer updated', tag: 'REPO');
   }
 
   Future<void> delete(String id) async {
     Logger.method('CustomerRepository', 'delete', {'id': id});
     Logger.db('DELETE', 'customers', {'id': id});
+    await _syncQueue.queueDelete('customers', id);
     await (_db.delete(_db.customers)..where((c) => c.id.equals(id))).go();
     Logger.success('Customer deleted', tag: 'REPO');
   }

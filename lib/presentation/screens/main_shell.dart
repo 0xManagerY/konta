@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:konta/data/remote/supabase_service.dart';
+import 'package:konta/presentation/providers/sync_provider.dart';
 
 class MainShell extends ConsumerStatefulWidget {
   final Widget child;
@@ -15,6 +16,13 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // This will start the periodic sync when auto-sync is enabled
+    // The syncStatusProvider is watched in build()
+  }
 
   void _showNewDocumentDialog(BuildContext context) {
     showModalBottomSheet(
@@ -55,6 +63,9 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch sync status to trigger periodic sync when auto-sync is enabled
+    ref.watch(syncStatusProvider);
+
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
       drawer: Drawer(

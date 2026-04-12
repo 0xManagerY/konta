@@ -2,11 +2,13 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import 'package:konta/data/local/database.dart';
 import 'package:konta/core/utils/logger.dart';
+import 'package:konta/data/sync/sync_queue_helper.dart';
 
 class InvoiceRepository {
   final AppDatabase _db;
+  final SyncQueueHelper _syncQueue;
 
-  InvoiceRepository(this._db);
+  InvoiceRepository(this._db, this._syncQueue);
 
   Future<List<Invoice>> getAll(String userId) async {
     Logger.method('InvoiceRepository', 'getAll', {'userId': userId});
@@ -86,6 +88,7 @@ class InvoiceRepository {
         await _db.into(_db.invoiceItems).insert(item);
       }
     });
+    await _syncQueue.queueInsert('invoices', invoice.id);
     Logger.success('Invoice with items inserted', tag: 'REPO');
   }
 
@@ -216,6 +219,7 @@ class InvoiceRepository {
       'status': invoice.status,
     });
     await (_db.update(_db.invoices)).replace(invoice);
+    await _syncQueue.queueUpdate('invoices', invoice.id);
     Logger.success('Invoice updated', tag: 'REPO');
   }
 
@@ -239,6 +243,7 @@ class InvoiceRepository {
   Future<void> delete(String id) async {
     Logger.method('InvoiceRepository', 'delete', {'id': id});
     Logger.db('DELETE', 'invoices', {'id': id});
+    await _syncQueue.queueDelete('invoices', id);
     await _db.transaction(() async {
       await (_db.delete(
         _db.invoiceItems,

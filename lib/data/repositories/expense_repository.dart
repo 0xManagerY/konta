@@ -2,11 +2,13 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import 'package:konta/data/local/database.dart';
 import 'package:konta/core/utils/logger.dart';
+import 'package:konta/data/sync/sync_queue_helper.dart';
 
 class ExpenseRepository {
   final AppDatabase _db;
+  final SyncQueueHelper _syncQueue;
 
-  ExpenseRepository(this._db);
+  ExpenseRepository(this._db, this._syncQueue);
 
   Future<List<Expense>> getAll(String userId) async {
     Logger.method('ExpenseRepository', 'getAll', {'userId': userId});
@@ -43,6 +45,7 @@ class ExpenseRepository {
     double tvaAmount = 0,
     String? description,
     String? receiptUrl,
+    String? receiptLocalPath,
     bool isDeductible = true,
   }) async {
     Logger.method('ExpenseRepository', 'create', {
@@ -69,6 +72,7 @@ class ExpenseRepository {
             date: Value(date),
             description: Value(description),
             receiptUrl: Value(receiptUrl),
+            receiptLocalPath: Value(receiptLocalPath),
             isDeductible: Value(isDeductible),
             createdAt: Value(now),
             updatedAt: Value(now),
@@ -77,13 +81,16 @@ class ExpenseRepository {
         );
 
     Logger.success('Expense created: $id', tag: 'REPO');
+    await _syncQueue.queueInsert('expenses', id);
     return id;
   }
 
   Future<void> update(Expense expense) async {
     Logger.method('ExpenseRepository', 'update', {'id': expense.id});
     Logger.db('UPDATE', 'expenses', {'id': expense.id});
-    await (_db.update(_db.expenses)).write(
+    await (_db.update(
+      _db.expenses,
+    )..where((e) => e.id.equals(expense.id))).write(
       ExpensesCompanion(
         category: Value(expense.category),
         amount: Value(expense.amount),
@@ -91,17 +98,20 @@ class ExpenseRepository {
         date: Value(expense.date),
         description: Value(expense.description),
         receiptUrl: Value(expense.receiptUrl),
+        receiptLocalPath: Value(expense.receiptLocalPath),
         isDeductible: Value(expense.isDeductible),
         updatedAt: Value(DateTime.now()),
         syncStatus: const Value('pending'),
       ),
     );
+    await _syncQueue.queueUpdate('expenses', expense.id);
     Logger.success('Expense updated', tag: 'REPO');
   }
 
   Future<void> delete(String id) async {
     Logger.method('ExpenseRepository', 'delete', {'id': id});
     Logger.db('DELETE', 'expenses', {'id': id});
+    await _syncQueue.queueDelete('expenses', id);
     await (_db.delete(_db.expenses)..where((e) => e.id.equals(id))).go();
     Logger.success('Expense deleted', tag: 'REPO');
   }

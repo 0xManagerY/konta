@@ -24,7 +24,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration {
@@ -57,6 +57,9 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 6) {
           await m.addColumn(invoiceItems, invoiceItems.productName);
+        }
+        if (from < 7) {
+          await m.addColumn(expenses, expenses.receiptLocalPath);
         }
       },
     );

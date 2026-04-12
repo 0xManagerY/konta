@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:konta/data/repositories/invoice_repository.dart';
-import 'package:konta/data/repositories/expense_repository.dart';
-import 'package:konta/data/repositories/customer_repository.dart';
 import 'package:konta/domain/services/export_service.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
+import 'package:konta/presentation/providers/invoice_provider.dart';
+import 'package:konta/presentation/providers/expense_provider.dart';
+import 'package:konta/presentation/providers/customer_provider.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 
 class ExportScreen extends ConsumerStatefulWidget {
@@ -186,9 +186,9 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     setState(() => _isExporting = true);
 
     try {
-      final invoiceRepo = InvoiceRepository(db);
-      final expenseRepo = ExpenseRepository(db);
-      final customerRepo = CustomerRepository(db);
+      final invoiceRepo = ref.read(invoiceRepositoryProvider);
+      final expenseRepo = ref.read(expenseRepositoryProvider);
+      final customerRepo = ref.read(customerRepositoryProvider);
 
       final exportService = ExportService(
         invoiceRepo,

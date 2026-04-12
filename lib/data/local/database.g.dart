@@ -4002,6 +4002,17 @@ class $ExpensesTable extends Expenses with TableInfo<$ExpensesTable, Expense> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _receiptLocalPathMeta = const VerificationMeta(
+    'receiptLocalPath',
+  );
+  @override
+  late final GeneratedColumn<String> receiptLocalPath = GeneratedColumn<String>(
+    'receipt_local_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isDeductibleMeta = const VerificationMeta(
     'isDeductible',
   );
@@ -4061,6 +4072,7 @@ class $ExpensesTable extends Expenses with TableInfo<$ExpensesTable, Expense> {
     date,
     description,
     receiptUrl,
+    receiptLocalPath,
     isDeductible,
     createdAt,
     updatedAt,
@@ -4136,6 +4148,15 @@ class $ExpensesTable extends Expenses with TableInfo<$ExpensesTable, Expense> {
         receiptUrl.isAcceptableOrUnknown(data['receipt_url']!, _receiptUrlMeta),
       );
     }
+    if (data.containsKey('receipt_local_path')) {
+      context.handle(
+        _receiptLocalPathMeta,
+        receiptLocalPath.isAcceptableOrUnknown(
+          data['receipt_local_path']!,
+          _receiptLocalPathMeta,
+        ),
+      );
+    }
     if (data.containsKey('is_deductible')) {
       context.handle(
         _isDeductibleMeta,
@@ -4208,6 +4229,10 @@ class $ExpensesTable extends Expenses with TableInfo<$ExpensesTable, Expense> {
         DriftSqlType.string,
         data['${effectivePrefix}receipt_url'],
       ),
+      receiptLocalPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}receipt_local_path'],
+      ),
       isDeductible: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_deductible'],
@@ -4242,6 +4267,7 @@ class Expense extends DataClass implements Insertable<Expense> {
   final DateTime date;
   final String? description;
   final String? receiptUrl;
+  final String? receiptLocalPath;
   final bool isDeductible;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -4255,6 +4281,7 @@ class Expense extends DataClass implements Insertable<Expense> {
     required this.date,
     this.description,
     this.receiptUrl,
+    this.receiptLocalPath,
     required this.isDeductible,
     required this.createdAt,
     required this.updatedAt,
@@ -4274,6 +4301,9 @@ class Expense extends DataClass implements Insertable<Expense> {
     }
     if (!nullToAbsent || receiptUrl != null) {
       map['receipt_url'] = Variable<String>(receiptUrl);
+    }
+    if (!nullToAbsent || receiptLocalPath != null) {
+      map['receipt_local_path'] = Variable<String>(receiptLocalPath);
     }
     map['is_deductible'] = Variable<bool>(isDeductible);
     map['created_at'] = Variable<DateTime>(createdAt);
@@ -4296,6 +4326,9 @@ class Expense extends DataClass implements Insertable<Expense> {
       receiptUrl: receiptUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(receiptUrl),
+      receiptLocalPath: receiptLocalPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(receiptLocalPath),
       isDeductible: Value(isDeductible),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
@@ -4317,6 +4350,7 @@ class Expense extends DataClass implements Insertable<Expense> {
       date: serializer.fromJson<DateTime>(json['date']),
       description: serializer.fromJson<String?>(json['description']),
       receiptUrl: serializer.fromJson<String?>(json['receiptUrl']),
+      receiptLocalPath: serializer.fromJson<String?>(json['receiptLocalPath']),
       isDeductible: serializer.fromJson<bool>(json['isDeductible']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -4335,6 +4369,7 @@ class Expense extends DataClass implements Insertable<Expense> {
       'date': serializer.toJson<DateTime>(date),
       'description': serializer.toJson<String?>(description),
       'receiptUrl': serializer.toJson<String?>(receiptUrl),
+      'receiptLocalPath': serializer.toJson<String?>(receiptLocalPath),
       'isDeductible': serializer.toJson<bool>(isDeductible),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -4351,6 +4386,7 @@ class Expense extends DataClass implements Insertable<Expense> {
     DateTime? date,
     Value<String?> description = const Value.absent(),
     Value<String?> receiptUrl = const Value.absent(),
+    Value<String?> receiptLocalPath = const Value.absent(),
     bool? isDeductible,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -4364,6 +4400,9 @@ class Expense extends DataClass implements Insertable<Expense> {
     date: date ?? this.date,
     description: description.present ? description.value : this.description,
     receiptUrl: receiptUrl.present ? receiptUrl.value : this.receiptUrl,
+    receiptLocalPath: receiptLocalPath.present
+        ? receiptLocalPath.value
+        : this.receiptLocalPath,
     isDeductible: isDeductible ?? this.isDeductible,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -4383,6 +4422,9 @@ class Expense extends DataClass implements Insertable<Expense> {
       receiptUrl: data.receiptUrl.present
           ? data.receiptUrl.value
           : this.receiptUrl,
+      receiptLocalPath: data.receiptLocalPath.present
+          ? data.receiptLocalPath.value
+          : this.receiptLocalPath,
       isDeductible: data.isDeductible.present
           ? data.isDeductible.value
           : this.isDeductible,
@@ -4405,6 +4447,7 @@ class Expense extends DataClass implements Insertable<Expense> {
           ..write('date: $date, ')
           ..write('description: $description, ')
           ..write('receiptUrl: $receiptUrl, ')
+          ..write('receiptLocalPath: $receiptLocalPath, ')
           ..write('isDeductible: $isDeductible, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -4423,6 +4466,7 @@ class Expense extends DataClass implements Insertable<Expense> {
     date,
     description,
     receiptUrl,
+    receiptLocalPath,
     isDeductible,
     createdAt,
     updatedAt,
@@ -4440,6 +4484,7 @@ class Expense extends DataClass implements Insertable<Expense> {
           other.date == this.date &&
           other.description == this.description &&
           other.receiptUrl == this.receiptUrl &&
+          other.receiptLocalPath == this.receiptLocalPath &&
           other.isDeductible == this.isDeductible &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
@@ -4455,6 +4500,7 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
   final Value<DateTime> date;
   final Value<String?> description;
   final Value<String?> receiptUrl;
+  final Value<String?> receiptLocalPath;
   final Value<bool> isDeductible;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
@@ -4469,6 +4515,7 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
     this.date = const Value.absent(),
     this.description = const Value.absent(),
     this.receiptUrl = const Value.absent(),
+    this.receiptLocalPath = const Value.absent(),
     this.isDeductible = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -4484,6 +4531,7 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
     required DateTime date,
     this.description = const Value.absent(),
     this.receiptUrl = const Value.absent(),
+    this.receiptLocalPath = const Value.absent(),
     this.isDeductible = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
@@ -4505,6 +4553,7 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
     Expression<DateTime>? date,
     Expression<String>? description,
     Expression<String>? receiptUrl,
+    Expression<String>? receiptLocalPath,
     Expression<bool>? isDeductible,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -4520,6 +4569,7 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
       if (date != null) 'date': date,
       if (description != null) 'description': description,
       if (receiptUrl != null) 'receipt_url': receiptUrl,
+      if (receiptLocalPath != null) 'receipt_local_path': receiptLocalPath,
       if (isDeductible != null) 'is_deductible': isDeductible,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -4537,6 +4587,7 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
     Value<DateTime>? date,
     Value<String?>? description,
     Value<String?>? receiptUrl,
+    Value<String?>? receiptLocalPath,
     Value<bool>? isDeductible,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
@@ -4552,6 +4603,7 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
       date: date ?? this.date,
       description: description ?? this.description,
       receiptUrl: receiptUrl ?? this.receiptUrl,
+      receiptLocalPath: receiptLocalPath ?? this.receiptLocalPath,
       isDeductible: isDeductible ?? this.isDeductible,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -4587,6 +4639,9 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
     if (receiptUrl.present) {
       map['receipt_url'] = Variable<String>(receiptUrl.value);
     }
+    if (receiptLocalPath.present) {
+      map['receipt_local_path'] = Variable<String>(receiptLocalPath.value);
+    }
     if (isDeductible.present) {
       map['is_deductible'] = Variable<bool>(isDeductible.value);
     }
@@ -4616,6 +4671,7 @@ class ExpensesCompanion extends UpdateCompanion<Expense> {
           ..write('date: $date, ')
           ..write('description: $description, ')
           ..write('receiptUrl: $receiptUrl, ')
+          ..write('receiptLocalPath: $receiptLocalPath, ')
           ..write('isDeductible: $isDeductible, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -8837,6 +8893,7 @@ typedef $$ExpensesTableCreateCompanionBuilder =
       required DateTime date,
       Value<String?> description,
       Value<String?> receiptUrl,
+      Value<String?> receiptLocalPath,
       Value<bool> isDeductible,
       required DateTime createdAt,
       required DateTime updatedAt,
@@ -8853,6 +8910,7 @@ typedef $$ExpensesTableUpdateCompanionBuilder =
       Value<DateTime> date,
       Value<String?> description,
       Value<String?> receiptUrl,
+      Value<String?> receiptLocalPath,
       Value<bool> isDeductible,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
@@ -8906,6 +8964,11 @@ class $$ExpensesTableFilterComposer
 
   ColumnFilters<String> get receiptUrl => $composableBuilder(
     column: $table.receiptUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get receiptLocalPath => $composableBuilder(
+    column: $table.receiptLocalPath,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8979,6 +9042,11 @@ class $$ExpensesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get receiptLocalPath => $composableBuilder(
+    column: $table.receiptLocalPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isDeductible => $composableBuilder(
     column: $table.isDeductible,
     builder: (column) => ColumnOrderings(column),
@@ -9037,6 +9105,11 @@ class $$ExpensesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get receiptLocalPath => $composableBuilder(
+    column: $table.receiptLocalPath,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get isDeductible => $composableBuilder(
     column: $table.isDeductible,
     builder: (column) => column,
@@ -9090,6 +9163,7 @@ class $$ExpensesTableTableManager
                 Value<DateTime> date = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 Value<String?> receiptUrl = const Value.absent(),
+                Value<String?> receiptLocalPath = const Value.absent(),
                 Value<bool> isDeductible = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -9104,6 +9178,7 @@ class $$ExpensesTableTableManager
                 date: date,
                 description: description,
                 receiptUrl: receiptUrl,
+                receiptLocalPath: receiptLocalPath,
                 isDeductible: isDeductible,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -9120,6 +9195,7 @@ class $$ExpensesTableTableManager
                 required DateTime date,
                 Value<String?> description = const Value.absent(),
                 Value<String?> receiptUrl = const Value.absent(),
+                Value<String?> receiptLocalPath = const Value.absent(),
                 Value<bool> isDeductible = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
@@ -9134,6 +9210,7 @@ class $$ExpensesTableTableManager
                 date: date,
                 description: description,
                 receiptUrl: receiptUrl,
+                receiptLocalPath: receiptLocalPath,
                 isDeductible: isDeductible,
                 createdAt: createdAt,
                 updatedAt: updatedAt,

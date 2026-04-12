@@ -2,11 +2,13 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import 'package:konta/data/local/database.dart';
 import 'package:konta/core/utils/logger.dart';
+import 'package:konta/data/sync/sync_queue_helper.dart';
 
 class ProductRepository {
   final AppDatabase _db;
+  final SyncQueueHelper _syncQueue;
 
-  ProductRepository(this._db);
+  ProductRepository(this._db, this._syncQueue);
 
   Future<List<Product>> getAll(String userId) async {
     Logger.method('ProductRepository', 'getAll', {'userId': userId});
@@ -51,6 +53,7 @@ class ProductRepository {
             syncStatus: const Value('pending'),
           ),
         );
+    await _syncQueue.queueInsert('products', id);
     Logger.success('Product inserted', tag: 'REPO');
     return id;
   }
@@ -60,11 +63,13 @@ class ProductRepository {
     await (_db.update(_db.products)).replace(
       product.copyWith(updatedAt: DateTime.now(), syncStatus: 'pending'),
     );
+    await _syncQueue.queueUpdate('products', product.id);
     Logger.success('Product updated', tag: 'REPO');
   }
 
   Future<void> delete(String id) async {
     Logger.method('ProductRepository', 'delete', {'id': id});
+    await _syncQueue.queueDelete('products', id);
     await (_db.delete(_db.products)..where((p) => p.id.equals(id))).go();
     Logger.success('Product deleted', tag: 'REPO');
   }

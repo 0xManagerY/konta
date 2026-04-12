@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:konta/data/sync/sync_service.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
+import 'package:konta/presentation/providers/settings_provider.dart';
 
 final syncServiceProvider = Provider<SyncService>((ref) {
   final db = ref.watch(databaseProvider);
@@ -15,7 +16,8 @@ final pendingSyncCountProvider = StreamProvider<int>((ref) {
 
 final syncStatusProvider = StreamProvider<bool>((ref) {
   final syncService = ref.watch(syncServiceProvider);
-  return syncService.syncStatus;
+  final autoSyncEnabled = ref.watch(settingsProvider).autoSyncEnabled;
+  return syncService.syncStatusWithSetting(autoSyncEnabled);
 });
 
 final isSyncingProvider = StateProvider<bool>((ref) => false);

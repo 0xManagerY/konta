@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:konta/data/local/database.dart';
 import 'package:konta/data/repositories/invoice_repository.dart';
 import 'package:konta/data/remote/supabase_service.dart';
+import 'package:konta/data/sync/sync_queue_helper.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
 
 final invoiceRepositoryProvider = Provider<InvoiceRepository>((ref) {
   final db = ref.watch(databaseProvider);
-  return InvoiceRepository(db);
+  final syncQueue = ref.watch(syncQueueHelperProvider);
+  return InvoiceRepository(db, syncQueue);
 });
 
 final invoicesProvider = StreamProvider<List<Invoice>>((ref) {

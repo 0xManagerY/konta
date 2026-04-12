@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:konta/data/local/database.dart';
+import 'package:konta/data/remote/storage_service.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 import 'package:konta/core/utils/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -50,13 +51,44 @@ class SyncService {
   }
 
   Future<bool> _pushOperation(SyncQueueItem op) async {
-    final data = await getRecord(op.tblName, op.recordId);
+    var data = await getRecord(op.tblName, op.recordId);
     if (data == null) {
       Logger.warning('RECORD_NOT_FOUND', tag: 'SYNC');
       return false;
     }
 
     final client = SupabaseService.client;
+    final userId = SupabaseService.currentUserId;
+
+    if (op.tblName == 'expenses' &&
+        op.operation != 'delete' &&
+        userId != null) {
+      final receiptLocalPath = data['receipt_local_path'] as String?;
+      final receiptUrl = data['receipt_url'] as String?;
+
+      if (receiptLocalPath != null &&
+          receiptLocalPath.isNotEmpty &&
+          StorageService.isLocalPath(receiptLocalPath) &&
+          (receiptUrl == null ||
+              receiptUrl.isEmpty ||
+              StorageService.isLocalPath(receiptUrl))) {
+        Logger.sync('UPLOAD_RECEIPT', receiptLocalPath);
+        final remoteUrl = await StorageService.uploadReceipt(
+          localPath: receiptLocalPath,
+          userId: userId,
+        );
+        if (remoteUrl != null) {
+          data = Map<String, dynamic>.from(data);
+          data['receipt_url'] = remoteUrl;
+          await _updateExpenseReceiptUrls(
+            op.recordId,
+            remoteUrl,
+            receiptLocalPath,
+          );
+          Logger.sync('RECEIPT_UPLOADED', remoteUrl);
+        }
+      }
+    }
 
     switch (op.tblName) {
       case 'customers':
@@ -202,6 +234,14 @@ class SyncService {
         await syncAll();
         return true;
       });
+
+  Stream<bool> syncStatusWithSetting(bool enabled) {
+    if (!enabled) {
+      Logger.sync('AUTO_SYNC_DISABLED');
+      return Stream.value(false);
+    }
+    return syncStatus;
+  }
 
   Future<void> queueOperation({
     required String table,
@@ -358,6 +398,7 @@ class SyncService {
           'date': record.date.toIso8601String(),
           'description': record.description,
           'receipt_url': record.receiptUrl,
+          'receipt_local_path': record.receiptLocalPath,
           'is_deductible': record.isDeductible,
           'created_at': record.createdAt.toIso8601String(),
           'updated_at': record.updatedAt.toIso8601String(),
@@ -425,6 +466,27 @@ class SyncService {
         );
         break;
     }
+  }
+
+  Future<void> _updateExpenseReceiptUrls(
+    String expenseId,
+    String remoteUrl,
+    String localPath,
+  ) async {
+    await (_db.update(
+      _db.expenses,
+    )..where((e) => e.id.equals(expenseId))).write(
+      ExpensesCompanion(
+        receiptUrl: Value(remoteUrl),
+        receiptLocalPath: Value(localPath),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+    Logger.db('UPDATE_RECEIPT_URLS', 'expenses', {
+      'id': expenseId,
+      'url': remoteUrl,
+      'local': localPath,
+    });
   }
 
   Future<int> getPendingCount() async {

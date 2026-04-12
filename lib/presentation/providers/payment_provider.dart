@@ -2,11 +2,13 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:konta/data/local/database.dart';
 import 'package:konta/data/repositories/payment_repository.dart';
+import 'package:konta/data/sync/sync_queue_helper.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
 
 final paymentRepositoryProvider = Provider<PaymentRepository>((ref) {
   final db = ref.watch(databaseProvider);
-  return PaymentRepository(db);
+  final syncQueue = ref.watch(syncQueueHelperProvider);
+  return PaymentRepository(db, syncQueue);
 });
 
 final paymentsForInvoiceProvider = StreamProvider.family<List<Payment>, String>(

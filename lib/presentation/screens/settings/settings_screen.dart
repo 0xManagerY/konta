@@ -1,27 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:konta/presentation/providers/settings_provider.dart';
 
-class SettingsScreen extends ConsumerStatefulWidget {
+class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
-  @override
-  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
-}
+  void _showComingSoon(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Fonctionnalité à venir'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
 
-class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  String _selectedLanguage = 'fr';
-  String _selectedTheme = 'system';
-  bool _notificationsEnabled = true;
-  bool _autoSyncEnabled = true;
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Paramètres')),
       body: ListView(
         children: [
           const SizedBox(height: 8),
-          _buildSectionHeader('Apparence'),
+          _buildSectionHeader(context, 'Apparence'),
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Column(
@@ -29,39 +31,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ListTile(
                   leading: const Icon(Icons.language),
                   title: const Text('Langue'),
-                  subtitle: Text(_getLanguageLabel(_selectedLanguage)),
+                  subtitle: Text(_getLanguageLabel(settings.locale)),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _showLanguageDialog(),
+                  onTap: () => _showLanguageDialog(context, ref, settings),
                 ),
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.brightness_6),
                   title: const Text('Thème'),
-                  subtitle: Text(_getThemeLabel(_selectedTheme)),
+                  subtitle: Text(_getThemeLabel(settings.themeMode)),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _showThemeDialog(),
+                  onTap: () => _showThemeDialog(context, ref, settings),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          _buildSectionHeader('Données'),
+          _buildSectionHeader(context, 'Données'),
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Column(
               children: [
-                ListTile(
-                  leading: const Icon(Icons.sync),
+                SwitchListTile(
+                  secondary: const Icon(Icons.sync),
                   title: const Text('Synchronisation automatique'),
                   subtitle: const Text(
                     'Synchroniser les données avec le serveur',
                   ),
-                  trailing: Switch(
-                    value: _autoSyncEnabled,
-                    onChanged: (value) {
-                      setState(() => _autoSyncEnabled = value);
-                    },
-                  ),
+                  value: settings.autoSyncEnabled,
+                  onChanged: (value) {
+                    ref.read(settingsProvider.notifier).setAutoSync(value);
+                  },
                 ),
                 const Divider(height: 1),
                 ListTile(
@@ -69,7 +69,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   title: const Text('Sauvegarder les données'),
                   subtitle: const Text('Exporter une copie de vos données'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _showBackupDialog(),
+                  onTap: () => _showBackupDialog(context),
                 ),
                 const Divider(height: 1),
                 ListTile(
@@ -77,29 +77,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   title: const Text('Restaurer les données'),
                   subtitle: const Text('Importer une sauvegarde'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _showRestoreDialog(),
+                  onTap: () => _showRestoreDialog(context),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          _buildSectionHeader('Notifications'),
+          _buildSectionHeader(context, 'Notifications'),
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: ListTile(
-              leading: const Icon(Icons.notifications),
+            child: SwitchListTile(
+              secondary: const Icon(Icons.notifications),
               title: const Text('Notifications'),
               subtitle: const Text('Rappels de paiements et échéances'),
-              trailing: Switch(
-                value: _notificationsEnabled,
-                onChanged: (value) {
-                  setState(() => _notificationsEnabled = value);
-                },
-              ),
+              value: settings.notificationsEnabled,
+              onChanged: (value) {
+                _showComingSoon(context);
+              },
             ),
           ),
           const SizedBox(height: 16),
-          _buildSectionHeader('Facturation'),
+          _buildSectionHeader(context, 'Facturation'),
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Column(
@@ -109,7 +107,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   title: const Text('Taux de TVA par défaut'),
                   subtitle: const Text('20%'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _showTvaDialog(),
+                  onTap: () => _showComingSoon(context),
                 ),
                 const Divider(height: 1),
                 ListTile(
@@ -117,47 +115,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   title: const Text('Modes de paiement'),
                   subtitle: const Text('Espèces, Virement, Chèque'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Fonctionnalité à venir')),
-                    );
-                  },
+                  onTap: () => _showComingSoon(context),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          _buildSectionHeader('À propos'),
+          _buildSectionHeader(context, 'À propos'),
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Column(
               children: [
-                ListTile(
-                  leading: const Icon(Icons.info_outline),
-                  title: const Text('Version'),
-                  subtitle: const Text('1.0.0'),
+                const ListTile(
+                  leading: Icon(Icons.info_outline),
+                  title: Text('Version'),
+                  subtitle: Text('0.1.1'),
                 ),
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.description_outlined),
-                  title: const Text('Conditions d\'utilisation'),
+                  title: const Text("Conditions d'utilisation"),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Fonctionnalité à venir')),
-                    );
-                  },
+                  onTap: () => _showComingSoon(context),
                 ),
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.privacy_tip_outlined),
                   title: const Text('Politique de confidentialité'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Fonctionnalité à venir')),
-                    );
-                  },
+                  onTap: () => _showComingSoon(context),
                 ),
               ],
             ),
@@ -166,7 +152,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: OutlinedButton.icon(
-              onPressed: () => _showResetDialog(),
+              onPressed: () => _showResetDialog(context, ref),
               icon: const Icon(Icons.restore, color: Colors.red),
               label: const Text(
                 'Réinitialiser les données',
@@ -181,7 +167,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(BuildContext context, String title) {
     return Padding(
       padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
       child: Text(
@@ -195,24 +181,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  String _getLanguageLabel(String code) {
-    return switch (code) {
+  String _getLanguageLabel(Locale locale) {
+    return switch (locale.languageCode) {
       'fr' => 'Français',
       'ar' => 'العربية (Arabe)',
-      _ => code,
+      _ => locale.languageCode,
     };
   }
 
-  String _getThemeLabel(String theme) {
-    return switch (theme) {
-      'light' => 'Clair',
-      'dark' => 'Sombre',
-      'system' => 'Système',
-      _ => theme,
+  String _getThemeLabel(ThemeMode mode) {
+    return switch (mode) {
+      ThemeMode.light => 'Clair',
+      ThemeMode.dark => 'Sombre',
+      ThemeMode.system => 'Système',
     };
   }
 
-  void _showLanguageDialog() {
+  void _showLanguageDialog(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings settings,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -223,18 +212,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             RadioListTile<String>(
               title: const Text('Français'),
               value: 'fr',
-              groupValue: _selectedLanguage,
+              groupValue: settings.locale.languageCode,
               onChanged: (value) {
-                setState(() => _selectedLanguage = value!);
+                ref.read(settingsProvider.notifier).setLocale(Locale(value!));
                 Navigator.pop(context);
               },
             ),
             RadioListTile<String>(
               title: const Text('العربية (Arabe)'),
               value: 'ar',
-              groupValue: _selectedLanguage,
+              groupValue: settings.locale.languageCode,
               onChanged: (value) {
-                setState(() => _selectedLanguage = value!);
+                ref.read(settingsProvider.notifier).setLocale(Locale(value!));
                 Navigator.pop(context);
               },
             ),
@@ -244,7 +233,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _showThemeDialog() {
+  void _showThemeDialog(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings settings,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -252,30 +245,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            RadioListTile<String>(
+            RadioListTile<ThemeMode>(
               title: const Text('Clair'),
-              value: 'light',
-              groupValue: _selectedTheme,
+              value: ThemeMode.light,
+              groupValue: settings.themeMode,
               onChanged: (value) {
-                setState(() => _selectedTheme = value!);
+                ref.read(settingsProvider.notifier).setThemeMode(value!);
                 Navigator.pop(context);
               },
             ),
-            RadioListTile<String>(
+            RadioListTile<ThemeMode>(
               title: const Text('Sombre'),
-              value: 'dark',
-              groupValue: _selectedTheme,
+              value: ThemeMode.dark,
+              groupValue: settings.themeMode,
               onChanged: (value) {
-                setState(() => _selectedTheme = value!);
+                ref.read(settingsProvider.notifier).setThemeMode(value!);
                 Navigator.pop(context);
               },
             ),
-            RadioListTile<String>(
+            RadioListTile<ThemeMode>(
               title: const Text('Système'),
-              value: 'system',
-              groupValue: _selectedTheme,
+              value: ThemeMode.system,
+              groupValue: settings.themeMode,
               onChanged: (value) {
-                setState(() => _selectedTheme = value!);
+                ref.read(settingsProvider.notifier).setThemeMode(value!);
                 Navigator.pop(context);
               },
             ),
@@ -285,62 +278,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _showTvaDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Taux de TVA par défaut'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<double>(
-              title: const Text('20%'),
-              subtitle: const Text('Taux normal'),
-              value: 20,
-              groupValue: 20,
-              onChanged: (value) => Navigator.pop(context),
-            ),
-            RadioListTile<double>(
-              title: const Text('14%'),
-              subtitle: const Text('Taux intermédiaire'),
-              value: 14,
-              groupValue: 20,
-              onChanged: (value) => Navigator.pop(context),
-            ),
-            RadioListTile<double>(
-              title: const Text('10%'),
-              subtitle: const Text('Hôtels, restaurants'),
-              value: 10,
-              groupValue: 20,
-              onChanged: (value) => Navigator.pop(context),
-            ),
-            RadioListTile<double>(
-              title: const Text('7%'),
-              subtitle: const Text('Eau, électricité'),
-              value: 7,
-              groupValue: 20,
-              onChanged: (value) => Navigator.pop(context),
-            ),
-            RadioListTile<double>(
-              title: const Text('0%'),
-              subtitle: const Text('Exonéré'),
-              value: 0,
-              groupValue: 20,
-              onChanged: (value) => Navigator.pop(context),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Fermer'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showBackupDialog() {
+  void _showBackupDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -358,7 +296,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Sauvegarde en cours...')),
+                const SnackBar(
+                  content: Text('Fonctionnalité à venir'),
+                  duration: Duration(seconds: 2),
+                ),
               );
             },
             child: const Text('Sauvegarder'),
@@ -368,7 +309,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _showRestoreDialog() {
+  void _showRestoreDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -386,7 +327,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Sélection du fichier...')),
+                const SnackBar(
+                  content: Text('Fonctionnalité à venir'),
+                  duration: Duration(seconds: 2),
+                ),
               );
             },
             child: const Text('Sélectionner'),
@@ -396,7 +340,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _showResetDialog() {
+  void _showResetDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -415,7 +359,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Fonctionnalité à venir')),
+                const SnackBar(
+                  content: Text('Fonctionnalité à venir'),
+                  duration: Duration(seconds: 2),
+                ),
               );
             },
             style: FilledButton.styleFrom(backgroundColor: Colors.red),

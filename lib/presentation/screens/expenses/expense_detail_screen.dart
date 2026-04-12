@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:konta/data/local/database.dart';
+import 'package:konta/data/remote/storage_service.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
 
 final _expenseProvider = StreamProvider.autoDispose.family<Expense?, String>((
@@ -36,6 +37,10 @@ class ExpenseDetailScreen extends ConsumerWidget {
             body: const Center(child: Text('Dépense non trouvée')),
           );
         }
+
+        final hasReceipt =
+            expense.receiptLocalPath != null &&
+            expense.receiptLocalPath!.isNotEmpty;
 
         return Scaffold(
           appBar: AppBar(
@@ -119,8 +124,7 @@ class ExpenseDetailScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-                if (expense.receiptUrl != null &&
-                    expense.receiptUrl!.isNotEmpty) ...[
+                if (hasReceipt) ...[
                   const SizedBox(height: 16),
                   Card(
                     child: Padding(
@@ -136,43 +140,14 @@ class ExpenseDetailScreen extends ConsumerWidget {
                           GestureDetector(
                             onTap: () => _showReceiptPreview(
                               context,
-                              expense.receiptUrl!,
+                              expense.receiptLocalPath!,
+                              expense.receiptUrl,
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: Image.file(
-                                File(expense.receiptUrl!),
-                                height: 200,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    height: 200,
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade200,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.receipt_long,
-                                          size: 48,
-                                          color: Colors.grey.shade400,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'Impossible de charger le reçu',
-                                          style: TextStyle(
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
+                              child: _ReceiptThumbnail(
+                                localPath: expense.receiptLocalPath,
+                                remoteUrl: expense.receiptUrl,
                               ),
                             ),
                           ),
@@ -181,7 +156,8 @@ class ExpenseDetailScreen extends ConsumerWidget {
                             child: TextButton.icon(
                               onPressed: () => _showReceiptPreview(
                                 context,
-                                expense.receiptUrl!,
+                                expense.receiptLocalPath!,
+                                expense.receiptUrl,
                               ),
                               icon: const Icon(Icons.zoom_in),
                               label: const Text('Voir en grand'),
@@ -235,10 +211,15 @@ class ExpenseDetailScreen extends ConsumerWidget {
     );
   }
 
-  void _showReceiptPreview(BuildContext context, String receiptPath) {
+  void _showReceiptPreview(
+    BuildContext context,
+    String localPath,
+    String? remoteUrl,
+  ) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => ReceiptPreviewScreen(receiptPath: receiptPath),
+        builder: (context) =>
+            ReceiptPreviewScreen(localPath: localPath, remoteUrl: remoteUrl),
       ),
     );
   }
@@ -284,9 +265,162 @@ class ExpenseDetailScreen extends ConsumerWidget {
   }
 }
 
-class ReceiptPreviewScreen extends StatelessWidget {
-  final String receiptPath;
-  const ReceiptPreviewScreen({super.key, required this.receiptPath});
+class _ReceiptThumbnail extends StatefulWidget {
+  final String? localPath;
+  final String? remoteUrl;
+
+  const _ReceiptThumbnail({this.localPath, this.remoteUrl});
+
+  @override
+  State<_ReceiptThumbnail> createState() => _ReceiptThumbnailState();
+}
+
+class _ReceiptThumbnailState extends State<_ReceiptThumbnail> {
+  File? _localFile;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  Future<void> _loadImage() async {
+    if (widget.localPath != null && widget.localPath!.isNotEmpty) {
+      final file = File(widget.localPath!);
+      if (await file.exists()) {
+        setState(() {
+          _localFile = file;
+          _loading = false;
+        });
+        return;
+      }
+    }
+
+    if (widget.remoteUrl != null &&
+        widget.remoteUrl!.isNotEmpty &&
+        StorageService.isRemoteUrl(widget.remoteUrl)) {
+      final file = await StorageService.downloadReceipt(widget.remoteUrl!);
+      if (mounted && file != null) {
+        setState(() {
+          _localFile = file;
+          _loading = false;
+        });
+        return;
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _error = 'Impossible de charger le reçu';
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Container(
+        height: 200,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_error != null || _localFile == null) {
+      return Container(
+        height: 200,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.receipt_long, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 8),
+            Text(
+              'Impossible de charger le reçu',
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Image.file(
+      _localFile!,
+      height: 200,
+      width: double.infinity,
+      fit: BoxFit.cover,
+    );
+  }
+}
+
+class ReceiptPreviewScreen extends StatefulWidget {
+  final String localPath;
+  final String? remoteUrl;
+
+  const ReceiptPreviewScreen({
+    super.key,
+    required this.localPath,
+    this.remoteUrl,
+  });
+
+  @override
+  State<ReceiptPreviewScreen> createState() => _ReceiptPreviewScreenState();
+}
+
+class _ReceiptPreviewScreenState extends State<ReceiptPreviewScreen> {
+  File? _localFile;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  Future<void> _loadImage() async {
+    final file = File(widget.localPath);
+    if (await file.exists()) {
+      setState(() {
+        _localFile = file;
+        _loading = false;
+      });
+      return;
+    }
+
+    if (widget.remoteUrl != null &&
+        widget.remoteUrl!.isNotEmpty &&
+        StorageService.isRemoteUrl(widget.remoteUrl)) {
+      final downloaded = await StorageService.downloadReceipt(
+        widget.remoteUrl!,
+      );
+      if (mounted && downloaded != null) {
+        setState(() {
+          _localFile = downloaded;
+          _loading = false;
+        });
+        return;
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _error = 'Impossible de charger l\'image';
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -298,14 +432,10 @@ class ReceiptPreviewScreen extends StatelessWidget {
       ),
       backgroundColor: Colors.black,
       body: Center(
-        child: InteractiveViewer(
-          minScale: 0.5,
-          maxScale: 4.0,
-          child: Image.file(
-            File(receiptPath),
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) {
-              return Column(
+        child: _loading
+            ? const CircularProgressIndicator(color: Colors.white)
+            : _error != null || _localFile == null
+            ? Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(
@@ -315,14 +445,16 @@ class ReceiptPreviewScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Impossible de charger l\'image',
+                    _error ?? 'Impossible de charger l\'image',
                     style: TextStyle(color: Colors.grey.shade400),
                   ),
                 ],
-              );
-            },
-          ),
-        ),
+              )
+            : InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Image.file(_localFile!, fit: BoxFit.contain),
+              ),
       ),
     );
   }

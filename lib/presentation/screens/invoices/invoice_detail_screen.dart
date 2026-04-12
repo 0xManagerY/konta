@@ -11,10 +11,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' hide Column, Table;
 import 'package:konta/data/local/database.dart';
-import 'package:konta/data/repositories/invoice_repository.dart';
-import 'package:konta/data/repositories/customer_repository.dart';
 import 'package:konta/domain/services/pdf_service.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
+import 'package:konta/presentation/providers/invoice_provider.dart';
+import 'package:konta/presentation/providers/customer_provider.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 
 final _invoiceProvider = StreamProvider.autoDispose.family<Invoice?, String>((
@@ -931,11 +931,11 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     )..where((p) => p.id.equals(userId))).getSingleOrNull();
     if (profile == null) return;
 
-    final customerRepo = CustomerRepository(db);
+    final customerRepo = ref.read(customerRepositoryProvider);
     final customer = await customerRepo.getById(invoice.customerId);
     if (customer == null) return;
 
-    final invoiceRepo = InvoiceRepository(db);
+    final invoiceRepo = ref.read(invoiceRepositoryProvider);
     final items = await invoiceRepo.getItems(invoice.id);
 
     final pdf = await PdfService.generateInvoicePdf(
@@ -965,11 +965,11 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     )..where((p) => p.id.equals(userId))).getSingleOrNull();
     if (profile == null) return;
 
-    final customerRepo = CustomerRepository(db);
+    final customerRepo = ref.read(customerRepositoryProvider);
     final customer = await customerRepo.getById(invoice.customerId);
     if (customer == null) return;
 
-    final invoiceRepo = InvoiceRepository(db);
+    final invoiceRepo = ref.read(invoiceRepositoryProvider);
     final items = await invoiceRepo.getItems(invoice.id);
 
     final pdf = await PdfService.generateInvoicePdf(
@@ -1043,8 +1043,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
   }
 
   Future<void> _duplicateInvoice(Invoice invoice) async {
-    final db = ref.read(databaseProvider);
-    final invoiceRepo = InvoiceRepository(db);
+    final invoiceRepo = ref.read(invoiceRepositoryProvider);
     final items = await invoiceRepo.getItems(invoice.id);
     final userId = SupabaseService.currentUserId;
     if (userId == null) return;
@@ -1123,8 +1122,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
 
     if (confirmed != true || !mounted) return;
 
-    final db = ref.read(databaseProvider);
-    final invoiceRepo = InvoiceRepository(db);
+    final invoiceRepo = ref.read(invoiceRepositoryProvider);
     final facture = await invoiceRepo.createFactureFromDevis(quote);
 
     if (mounted) {
@@ -1209,8 +1207,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
 
     if (confirmed == null || !mounted) return;
 
-    final db = ref.read(databaseProvider);
-    final invoiceRepo = InvoiceRepository(db);
+    final invoiceRepo = ref.read(invoiceRepositoryProvider);
     final avoir = await invoiceRepo.createAvoirFromDocument(
       invoice,
       refundReason: confirmed.reason,
@@ -1338,8 +1335,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     );
 
     if (confirmed == true && mounted) {
-      final db = ref.read(databaseProvider);
-      final invoiceRepo = InvoiceRepository(db);
+      final invoiceRepo = ref.read(invoiceRepositoryProvider);
       await invoiceRepo.delete(invoice.id);
       if (mounted) context.pop();
     }
