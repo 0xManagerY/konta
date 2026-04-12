@@ -1,0 +1,65 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:konta/data/local/database.dart';
+import 'package:konta/data/repositories/profile_repository.dart';
+import 'package:konta/data/remote/supabase_service.dart';
+import 'package:konta/data/sync/sync_service.dart';
+import 'package:konta/core/utils/logger.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+final databaseProvider = Provider<AppDatabase>((ref) {
+  return AppDatabase();
+});
+
+final profileRepoProvider = Provider<ProfileRepository>((ref) {
+  final db = ref.watch(databaseProvider);
+  return ProfileRepository(db);
+});
+
+final syncServiceProvider = Provider<SyncService>((ref) {
+  final db = ref.watch(databaseProvider);
+  return SyncService(db);
+});
+
+final authStateProvider = StreamProvider<AuthState>((ref) {
+  return SupabaseService.authStateChanges;
+});
+
+final isAuthenticatedProvider = Provider<bool>((ref) {
+  return SupabaseService.isAuthenticated;
+});
+
+final currentUserIdProvider = Provider<String?>((ref) {
+  return SupabaseService.currentUserId;
+});
+
+final profileProvider = FutureProvider<Profile?>((ref) async {
+  final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return null;
+
+  final repo = ref.watch(profileRepoProvider);
+  return repo.fetchFromRemote(userId);
+});
+
+final needsOnboardingProvider = FutureProvider<bool>((ref) async {
+  final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return true;
+
+  final repo = ref.watch(profileRepoProvider);
+  final profile = await repo.fetchFromRemote(userId);
+
+  if (profile == null) return true;
+
+  return profile.companyName.isEmpty;
+});
+
+final syncAndCheckOnboardingProvider = FutureProvider<void>((ref) async {
+  final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return;
+
+  final syncService = ref.watch(syncServiceProvider);
+  Logger.sync('AUTH_FLOW_SYNC', 'Starting sync for user: $userId');
+  await syncService.syncAll();
+  Logger.sync('AUTH_FLOW_SYNC_COMPLETE');
+
+  ref.invalidate(needsOnboardingProvider);
+});

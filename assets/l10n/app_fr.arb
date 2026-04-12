@@ -1,0 +1,177 @@
+{
+  "@@locale": "fr",
+  "@@last_modified": "2026-04-10T00:00:00.000Z",
+  
+  "appName": "Konta",
+  "appNameFull": "Konta - Comptabilité Marocaine",
+  
+  "auth": {
+    "login": "Connexion",
+    "register": "Inscription",
+    "email": "Adresse email",
+    "password": "Mot de passe",
+    "confirmPassword": "Confirmer le mot de passe",
+    "forgotPassword": "Mot de passe oublié ?",
+    "resetPassword": "Réinitialiser le mot de passe",
+    "noAccount": "Pas encore de compte ?",
+    "hasAccount": "Déjà un compte ?",
+    "signOut": "Déconnexion"
+  },
+  
+  "company": {
+    "title": "Entreprise",
+    "name": "Nom de l'entreprise",
+    "legalStatus": "Statut juridique",
+    "ice": "ICE (Identifiant Commun de l'Entreprise)",
+    "if": "IF (Identifiant Fiscal)",
+    "rc": "RC (Registre du Commerce)",
+    "cnss": "CNSS",
+    "address": "Adresse",
+    "phone": "Téléphone",
+    "logo": "Logo/Tampon"
+  },
+  
+  "legalStatus": {
+    "sarl": "SARL",
+    "sarlAU": "SARL-AU",
+    "ae": "Auto-entrepreneur",
+    "snc": "SNC"
+  },
+  
+  "customer": {
+    "title": "Client",
+    "customers": "Clients",
+    "addCustomer": "Ajouter un client",
+    "editCustomer": "Modifier le client",
+    "customerName": "Nom du client",
+    "customerDetails": "Détails du client",
+    "invoiceHistory": "Historique des factures"
+  },
+  
+  "invoice": {
+    "title": "Facture",
+    "invoices": "Factures",
+    "quote": "Devis",
+    "quotes": "Devis",
+    "createInvoice": "Créer une facture",
+    "createQuote": "Créer un devis",
+    "invoiceNumber": "Numéro de facture",
+    "quoteNumber": "Numéro de devis",
+    "issueDate": "Date d'émission",
+    "dueDate": "Date d'échéance",
+    "status": "Statut",
+    "subtotal": "Total HT",
+    "tva": "TVA",
+    "total": "Total TTC",
+    "totalInWords": "Total en lettres",
+    "convertToInvoice": "Convertir en facture",
+    "markAsPaid": "Marquer comme payée",
+    "markAsSent": "Marquer comme envoyée"
+  },
+  
+  "invoiceStatus": {
+    "draft": "Brouillon",
+    "sent": "Envoyée",
+    "paid": "Payée",
+    "overdue": "En retard",
+    "cancelled": "Annulée"
+  },
+  
+  "tva": {
+    "rate": "Taux TVA",
+    "rate1": "1% (Auto-entrepreneur)",
+    "rate10": "10% (Taux réduit)",
+    "rate20": "20% (Taux normal)",
+    "autoEntrepreneurNotice": "TVA applicable au taux de 1%, article 91 du CGI"
+  },
+  
+  "item": {
+    "description": "Description",
+    "quantity": "Quantité",
+    "unitPrice": "Prix unitaire",
+    "total": "Total",
+    "addItem": "Ajouter une ligne"
+  },
+  
+  "expense": {
+    "title": "Dépense",
+    "expenses": "Dépenses",
+    "addExpense": "Ajouter une dépense",
+    "category": "Catégorie",
+    "amount": "Montant",
+    "date": "Date",
+    "receipt": "Reçu",
+    "scanReceipt": "Scanner le reçu",
+    "isDeductible": "Déductible"
+  },
+  
+  "payment": {
+    "title": "Paiement",
+    "payments": "Paiements",
+    "addPayment": "Ajouter un paiement",
+    "method": "Mode de paiement",
+    "paymentDate": "Date de paiement",
+    "checkDueDate": "Date d'échéance du chèque",
+    "amount": "Montant"
+  },
+  
+  "paymentMethod": {
+    "cash": "Espèces",
+    "transfer": "Virement bancaire",
+    "check": "Chèque",
+    "bill": "Effet de commerce"
+  },
+  
+  "dashboard": {
+    "title": "Tableau de bord",
+    "cashFlow": "Trésorerie",
+    "totalRevenue": "Chiffre d'affaires",
+    "totalExpenses": "Dépenses totales",
+    "outstanding": "Factures en attente",
+    "ownerSalary": "Salaire du propriétaire"
+  },
+  
+  "export": {
+    "title": "Export",
+    "monthlyExport": "Export mensuel",
+    "selectMonth": "Sélectionner le mois",
+    "generateZip": "Générer le fichier ZIP",
+    "salesFile": "Ventes",
+    "expensesFile": "Dépenses"
+  },
+  
+  "actions": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "share": "Partager",
+    "download": "Télécharger",
+    "preview": "Aperçu",
+    "generate": "Générer",
+    "send": "Envoyer"
+  },
+  
+  "messages": {
+    "success": "Opération réussie",
+    "error": "Une erreur est survenue",
+    "loading": "Chargement...",
+    "noData": "Aucune donnée disponible",
+    "confirmDelete": "Êtes-vous sûr de vouloir supprimer ?",
+    "required": "Ce champ est obligatoire",
+    "invalidEmail": "Adresse email invalide",
+    "invalidICE": "L'ICE doit contenir exactement 15 chiffres",
+    "passwordMismatch": "Les mots de passe ne correspondent pas"
+  },
+  
+  "settings": {
+    "title": "Paramètres",
+    "language": "Langue",
+    "french": "Français",
+    "arabic": "العربية",
+    "theme": "Thème",
+    "light": "Clair",
+    "dark": "Sombre",
+    "about": "À propos"
+  }
+}

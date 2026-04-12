@@ -1,0 +1,177 @@
+{
+  "@@locale": "ar",
+  "@@last_modified": "2026-04-10T00:00:00.000Z",
+  
+  "appName": "كونتا",
+  "appNameFull": "كونتا - المحاسبة المغربية",
+  
+  "auth": {
+    "login": "تسجيل الدخول",
+    "register": "إنشاء حساب",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "confirmPassword": "تأكيد كلمة المرور",
+    "forgotPassword": "نسيت كلمة المرور؟",
+    "resetPassword": "إعادة تعيين كلمة المرور",
+    "noAccount": "ليس لديك حساب؟",
+    "hasAccount": "لديك حساب بالفعل؟",
+    "signOut": "تسجيل الخروج"
+  },
+  
+  "company": {
+    "title": "المؤسسة",
+    "name": "اسم المؤسسة",
+    "legalStatus": "الوضعية القانونية",
+    "ice": "رقم ICE",
+    "if": "رقم IF",
+    "rc": "السجل التجاري",
+    "cnss": "الضمان الاجتماعي",
+    "address": "العنوان",
+    "phone": "الهاتف",
+    "logo": "الشعار/الختم"
+  },
+  
+  "legalStatus": {
+    "sarl": "ش.ذ.م.م",
+    "sarlAU": "ش.ذ.م.م أحادية",
+    "ae": "مقاول ذاتي",
+    "snc": "ش.ت.ب"
+  },
+  
+  "customer": {
+    "title": "العميل",
+    "customers": "العملاء",
+    "addCustomer": "إضافة عميل",
+    "editCustomer": "تعديل العميل",
+    "customerName": "اسم العميل",
+    "customerDetails": "تفاصيل العميل",
+    "invoiceHistory": "سجل الفواتير"
+  },
+  
+  "invoice": {
+    "title": "فاتورة",
+    "invoices": "الفواتير",
+    "quote": "عرض سعر",
+    "quotes": "عروض الأسعار",
+    "createInvoice": "إنشاء فاتورة",
+    "createQuote": "إنشاء عرض سعر",
+    "invoiceNumber": "رقم الفاتورة",
+    "quoteNumber": "رقم عرض السعر",
+    "issueDate": "تاريخ الإصدار",
+    "dueDate": "تاريخ الاستحقاق",
+    "status": "الحالة",
+    "subtotal": "المجموع دون الضرائب",
+    "tva": "الضريبة على القيمة المضافة",
+    "total": "المجموع شامل الضرائب",
+    "totalInWords": "المبلغ كتابة",
+    "convertToInvoice": "تحويل إلى فاتورة",
+    "markAsPaid": "وضع علامة مدفوعة",
+    "markAsSent": "وضع علامة مرسلة"
+  },
+  
+  "invoiceStatus": {
+    "draft": "مسودة",
+    "sent": "مرسلة",
+    "paid": "مدفوعة",
+    "overdue": "متأخرة",
+    "cancelled": "ملغاة"
+  },
+  
+  "tva": {
+    "rate": "نسبة الضريبة",
+    "rate1": "1% (مقاول ذاتي)",
+    "rate10": "10% (نسبة مخفضة)",
+    "rate20": "20% (نسبة عادية)",
+    "autoEntrepreneurNotice": "الضريبة على القيمة المضافة بنسبة 1%، المادة 91 من المدونة العامة للضرائب"
+  },
+  
+  "item": {
+    "description": "الوصف",
+    "quantity": "الكمية",
+    "unitPrice": "السعر الوحدوي",
+    "total": "المجموع",
+    "addItem": "إضافة بند"
+  },
+  
+  "expense": {
+    "title": "مصروف",
+    "expenses": "المصروفات",
+    "addExpense": "إضافة مصروف",
+    "category": "الفئة",
+    "amount": "المبلغ",
+    "date": "التاريخ",
+    "receipt": "الإيصال",
+    "scanReceipt": "مسح الإيصال",
+    "isDeductible": "قابل للخصم"
+  },
+  
+  "payment": {
+    "title": "دفع",
+    "payments": "المدفوعات",
+    "addPayment": "إضافة دفع",
+    "method": "طريقة الدفع",
+    "paymentDate": "تاريخ الدفع",
+    "checkDueDate": "تاريخ استحقاق الشيك",
+    "amount": "المبلغ"
+  },
+  
+  "paymentMethod": {
+    "cash": "نقدا",
+    "transfer": "تحويل بنكي",
+    "check": "شيك",
+    "bill": "سند دين"
+  },
+  
+  "dashboard": {
+    "title": "لوحة التحكم",
+    "cashFlow": "الخزينة",
+    "totalRevenue": "رقم الأعمال",
+    "totalExpenses": "إجمالي المصروفات",
+    "outstanding": "الفواتير المعلقة",
+    "ownerSalary": "راتب المالك"
+  },
+  
+  "export": {
+    "title": "تصدير",
+    "monthlyExport": "تصدير شهري",
+    "selectMonth": "اختر الشهر",
+    "generateZip": "إنشاء ملف ZIP",
+    "salesFile": "المبيعات",
+    "expensesFile": "المصروفات"
+  },
+  
+  "actions": {
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "share": "مشاركة",
+    "download": "تحميل",
+    "preview": "معاينة",
+    "generate": "إنشاء",
+    "send": "إرسال"
+  },
+  
+  "messages": {
+    "success": "تمت العملية بنجاح",
+    "error": "حدث خطأ",
+    "loading": "جاري التحميل...",
+    "noData": "لا توجد بيانات",
+    "confirmDelete": "هل أنت متأكد من الحذف؟",
+    "required": "هذا الحقل مطلوب",
+    "invalidEmail": "البريد الإلكتروني غير صالح",
+    "invalidICE": "يجب أن يتكون رقم ICE من 15 رقمًا بالضبط",
+    "passwordMismatch": "كلمات المرور غير متطابقة"
+  },
+  
+  "settings": {
+    "title": "الإعدادات",
+    "language": "اللغة",
+    "french": "Français",
+    "arabic": "العربية",
+    "theme": "المظهر",
+    "light": "فاتح",
+    "dark": "داكن",
+    "about": "حول التطبيق"
+  }
+}
