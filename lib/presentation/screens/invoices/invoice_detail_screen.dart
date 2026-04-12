@@ -59,6 +59,27 @@ final _paymentsProvider = StreamProvider.autoDispose
           .watch();
     });
 
+final _relatedDocumentsProvider = StreamProvider.autoDispose
+    .family<List<Invoice>, ({String parentId, String parentType})>((
+      ref,
+      params,
+    ) {
+      final db = ref.watch(databaseProvider);
+      return (db.select(db.invoices)
+            ..where(
+              (i) =>
+                  i.parentDocumentId.equals(params.parentId) &
+                  i.type.equals(params.parentType),
+            )
+            ..orderBy([
+              (i) => OrderingTerm(
+                expression: i.createdAt,
+                mode: OrderingMode.desc,
+              ),
+            ]))
+          .watch();
+    });
+
 class InvoiceDetailScreen extends ConsumerStatefulWidget {
   final String invoiceId;
   const InvoiceDetailScreen({super.key, required this.invoiceId});
@@ -182,6 +203,8 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
           const SizedBox(height: 16),
           if (invoice.type == 'invoice') _buildPaymentsCard(invoice),
           if (invoice.type == 'invoice') const SizedBox(height: 16),
+          _buildRelatedDocumentsCard(invoice),
+          const SizedBox(height: 16),
           _buildActionsCard(invoice),
         ],
       ),
@@ -264,25 +287,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
               ),
             if (invoice.parentDocumentId != null &&
                 invoice.parentDocumentType != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Text(
-                      'Document d\'origine: ',
-                      style: TextStyle(color: Colors.grey[600]),
-                    ),
-                    Text(
-                      invoice.parentDocumentType == 'invoice'
-                          ? 'Facture'
-                          : invoice.parentDocumentType == 'devis'
-                          ? 'Devis'
-                          : invoice.parentDocumentType!,
-                      style: const TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-              ),
+              _buildParentDocumentLink(invoice),
             const SizedBox(height: 16),
             const Text(
               'Client:',
@@ -306,6 +311,64 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildParentDocumentLink(Invoice invoice) {
+    final parentType = invoice.parentDocumentType ?? '';
+    final parentLabel = switch (parentType) {
+      'invoice' => 'Facture',
+      'devis' => 'Devis',
+      'avoir' => 'Avoir',
+      _ => parentType,
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: InkWell(
+        onTap: () => _navigateToParentDocument(invoice),
+        borderRadius: BorderRadius.circular(4),
+        child: Row(
+          children: [
+            Text(
+              'Document d\'origine: ',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            Icon(
+              Icons.link,
+              size: 16,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              parentLabel,
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Theme.of(context).colorScheme.primary,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _navigateToParentDocument(Invoice invoice) {
+    final parentType = invoice.parentDocumentType;
+    final parentId = invoice.parentDocumentId;
+
+    if (parentType == null || parentId == null) return;
+
+    final route = switch (parentType) {
+      'invoice' => '/invoices/$parentId',
+      'devis' => '/quotes/$parentId',
+      'avoir' => '/avoirs/$parentId',
+      _ => null,
+    };
+
+    if (route != null) {
+      context.push(route);
+    }
   }
 
   Widget _buildCustomerInfo(String customerId) {
@@ -619,6 +682,119 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildRelatedDocumentsCard(Invoice invoice) {
+    if (invoice.type != 'devis' && invoice.type != 'invoice') {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Documents liés',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            _buildRelatedDocumentsList(invoice),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRelatedDocumentsList(Invoice invoice) {
+    if (invoice.type == 'devis') {
+      final facturesAsync = ref.watch(
+        _relatedDocumentsProvider((
+          parentId: invoice.id,
+          parentType: 'invoice',
+        )),
+      );
+
+      return facturesAsync.when(
+        data: (factures) {
+          if (factures.isEmpty) {
+            return Text(
+              'Aucune facture créée à partir de ce devis',
+              style: TextStyle(color: Colors.grey[600]),
+            );
+          }
+          return Column(
+            children: factures
+                .map((f) => _buildRelatedDocumentTile(f, 'invoice'))
+                .toList(),
+          );
+        },
+        loading: () => const SizedBox.shrink(),
+        error: (_, __) => const Text('Erreur de chargement'),
+      );
+    }
+
+    if (invoice.type == 'invoice') {
+      final avoirsAsync = ref.watch(
+        _relatedDocumentsProvider((parentId: invoice.id, parentType: 'avoir')),
+      );
+
+      return avoirsAsync.when(
+        data: (avoirs) {
+          if (avoirs.isEmpty) {
+            return Text(
+              'Aucun avoir lié',
+              style: TextStyle(color: Colors.grey[600]),
+            );
+          }
+          return Column(
+            children: avoirs
+                .map((a) => _buildRelatedDocumentTile(a, 'avoir'))
+                .toList(),
+          );
+        },
+        loading: () => const SizedBox.shrink(),
+        error: (_, __) => const Text('Erreur de chargement'),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildRelatedDocumentTile(Invoice doc, String type) {
+    final typeLabel = switch (type) {
+      'invoice' => 'Facture',
+      'avoir' => 'Avoir',
+      _ => 'Document',
+    };
+
+    final route = switch (type) {
+      'invoice' => '/invoices/${doc.id}',
+      'avoir' => '/avoirs/${doc.id}',
+      _ => null,
+    };
+
+    final statusLabel = switch (doc.status) {
+      'draft' => 'Brouillon',
+      'sent' => 'Envoyé',
+      'paid' => 'Payé',
+      'partially_paid' => 'Partiellement payé',
+      'cancelled' => 'Annulé',
+      _ => doc.status,
+    };
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        type == 'avoir' ? Icons.receipt_long : Icons.receipt,
+        color: type == 'avoir' ? Colors.orange : null,
+      ),
+      title: Text('${doc.number} - $typeLabel'),
+      subtitle: Text('${_currencyFormat.format(doc.total)} • $statusLabel'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: route != null ? () => context.push(route) : null,
     );
   }
 
