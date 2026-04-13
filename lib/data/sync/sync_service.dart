@@ -60,6 +60,8 @@ class SyncService {
     final client = SupabaseService.client;
     final userId = SupabaseService.currentUserId;
 
+    Logger.sync('PUSH_DATA', '${op.tblName}: ${jsonEncode(data)}');
+
     if (op.tblName == 'expenses' &&
         op.operation != 'delete' &&
         userId != null) {
