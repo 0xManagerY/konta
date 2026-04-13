@@ -294,9 +294,27 @@ class SyncService {
 
         if (existing == null || existing.syncStatus == 'synced') {
           Logger.db('UPSERT_LOCAL', 'customers', {'id': data['id']});
-          await _db
-              .into(_db.customers)
-              .insertOnConflictUpdate(Customer.fromJson(data));
+          final customer = Customer(
+            id: data['id'] as String,
+            userId: data['user_id'] as String,
+            name: data['name'] as String,
+            ice: data['ice'] as String?,
+            rc: data['rc'] as String?,
+            ifNumber: data['if_number'] as String?,
+            patente: data['patente'] as String?,
+            cnss: data['cnss'] as String?,
+            legalForm: data['legal_form'] as String?,
+            capital: data['capital'] as String?,
+            status: data['status'] as String?,
+            address: data['address'] as String?,
+            phones: data['phones'] as String?,
+            fax: data['fax'] as String?,
+            emails: data['emails'] as String?,
+            createdAt: DateTime.parse(data['created_at'] as String),
+            updatedAt: DateTime.parse(data['updated_at'] as String),
+            syncStatus: 'synced',
+          );
+          await _db.into(_db.customers).insertOnConflictUpdate(customer);
         } else {
           Logger.sync(
             'SKIP_CONFLICT',
