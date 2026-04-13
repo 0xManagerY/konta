@@ -329,9 +329,30 @@ class SyncService {
 
         if (existing == null || existing.syncStatus == 'synced') {
           Logger.db('UPSERT_LOCAL', 'invoices', {'id': data['id']});
-          await _db
-              .into(_db.invoices)
-              .insertOnConflictUpdate(Invoice.fromJson(data));
+          final invoice = Invoice(
+            id: data['id'] as String,
+            userId: data['user_id'] as String,
+            customerId: data['customer_id'] as String,
+            type: data['type'] as String,
+            number: data['number'] as String,
+            status: data['status'] as String,
+            issueDate: DateTime.parse(data['issue_date'] as String),
+            dueDate: data['due_date'] != null
+                ? DateTime.parse(data['due_date'] as String)
+                : null,
+            subtotal: (data['subtotal'] as num?)?.toDouble() ?? 0.0,
+            tvaAmount: (data['tva_amount'] as num?)?.toDouble() ?? 0.0,
+            total: (data['total'] as num?)?.toDouble() ?? 0.0,
+            notes: data['notes'] as String?,
+            parentDocumentId: data['parent_document_id'] as String?,
+            parentDocumentType: data['parent_document_type'] as String?,
+            refundReason: data['refund_reason'] as String?,
+            isConverted: data['is_converted'] as bool? ?? false,
+            createdAt: DateTime.parse(data['created_at'] as String),
+            updatedAt: DateTime.parse(data['updated_at'] as String),
+            syncStatus: 'synced',
+          );
+          await _db.into(_db.invoices).insertOnConflictUpdate(invoice);
         } else {
           Logger.sync(
             'SKIP_CONFLICT',
@@ -346,9 +367,19 @@ class SyncService {
 
         if (existingItem == null || existingItem.syncStatus == 'synced') {
           Logger.db('UPSERT_LOCAL', 'invoice_items', {'id': data['id']});
-          await _db
-              .into(_db.invoiceItems)
-              .insertOnConflictUpdate(InvoiceItem.fromJson(data));
+          final item = InvoiceItem(
+            id: data['id'] as String,
+            invoiceId: data['invoice_id'] as String,
+            productId: data['product_id'] as String?,
+            productName: data['product_name'] as String?,
+            description: data['description'] as String? ?? '',
+            quantity: (data['quantity'] as num?)?.toDouble() ?? 1.0,
+            unitPrice: (data['unit_price'] as num).toDouble(),
+            tvaRate: (data['tva_rate'] as num?)?.toDouble() ?? 20.0,
+            total: (data['total'] as num).toDouble(),
+            syncStatus: 'synced',
+          );
+          await _db.into(_db.invoiceItems).insertOnConflictUpdate(item);
         } else {
           Logger.sync(
             'SKIP_CONFLICT',
@@ -363,9 +394,22 @@ class SyncService {
 
         if (existing == null || existing.syncStatus == 'synced') {
           Logger.db('UPSERT_LOCAL', 'expenses', {'id': data['id']});
-          await _db
-              .into(_db.expenses)
-              .insertOnConflictUpdate(Expense.fromJson(data));
+          final expense = Expense(
+            id: data['id'] as String,
+            userId: data['user_id'] as String,
+            category: data['category'] as String,
+            amount: (data['amount'] as num).toDouble(),
+            tvaAmount: (data['tva_amount'] as num?)?.toDouble() ?? 0.0,
+            date: DateTime.parse(data['date'] as String),
+            description: data['description'] as String?,
+            receiptUrl: data['receipt_url'] as String?,
+            receiptLocalPath: data['receipt_local_path'] as String?,
+            isDeductible: data['is_deductible'] as bool? ?? true,
+            createdAt: DateTime.parse(data['created_at'] as String),
+            updatedAt: DateTime.parse(data['updated_at'] as String),
+            syncStatus: 'synced',
+          );
+          await _db.into(_db.expenses).insertOnConflictUpdate(expense);
         } else {
           Logger.sync(
             'SKIP_CONFLICT',
@@ -380,9 +424,19 @@ class SyncService {
 
         if (existing == null || existing.syncStatus == 'synced') {
           Logger.db('UPSERT_LOCAL', 'owner_salaries', {'id': data['id']});
-          await _db
-              .into(_db.ownerSalaries)
-              .insertOnConflictUpdate(OwnerSalary.fromJson(data));
+          final salary = OwnerSalary(
+            id: data['id'] as String,
+            userId: data['user_id'] as String,
+            amount: (data['amount'] as num).toDouble(),
+            month: data['month'] as int,
+            year: data['year'] as int,
+            paymentDate: data['payment_date'] != null
+                ? DateTime.parse(data['payment_date'] as String)
+                : null,
+            createdAt: DateTime.parse(data['created_at'] as String),
+            syncStatus: 'synced',
+          );
+          await _db.into(_db.ownerSalaries).insertOnConflictUpdate(salary);
         } else {
           Logger.sync(
             'SKIP_CONFLICT',
@@ -433,9 +487,20 @@ class SyncService {
 
     if (existing == null || existing.syncStatus == 'synced') {
       Logger.db('UPSERT_LOCAL', 'payments', {'id': data['id']});
-      await _db
-          .into(_db.payments)
-          .insertOnConflictUpdate(Payment.fromJson(data));
+      final payment = Payment(
+        id: data['id'] as String,
+        invoiceId: data['invoice_id'] as String,
+        amount: (data['amount'] as num).toDouble(),
+        method: data['method'] as String,
+        paymentDate: DateTime.parse(data['payment_date'] as String),
+        checkDueDate: data['check_due_date'] != null
+            ? DateTime.parse(data['check_due_date'] as String)
+            : null,
+        notes: data['notes'] as String?,
+        createdAt: DateTime.parse(data['created_at'] as String),
+        syncStatus: 'synced',
+      );
+      await _db.into(_db.payments).insertOnConflictUpdate(payment);
     } else {
       Logger.sync(
         'SKIP_CONFLICT',
