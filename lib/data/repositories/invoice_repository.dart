@@ -233,20 +233,37 @@ class InvoiceRepository {
       'invoiceId': invoiceId,
       'itemsCount': items.length,
     });
-    final oldItems = await getItems(invoiceId);
-    for (final old in oldItems) {
-      await _syncQueue.queueDelete('invoice_items', old.id);
-    }
+
     await _db.transaction(() async {
       await (_db.delete(
         _db.invoiceItems,
       )..where((i) => i.invoiceId.equals(invoiceId))).go();
+
       for (final item in items) {
-        Logger.db('INSERT', 'invoice_items', {'id': item.id});
-        await _db.into(_db.invoiceItems).insert(item);
-        await _syncQueue.queueInsert('invoice_items', item.id);
+        final itemToInsert = InvoiceItem(
+          id: item.id,
+          invoiceId: invoiceId,
+          productId: item.productId,
+          productName: item.productName,
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          tvaRate: item.tvaRate,
+          total: item.total,
+          syncStatus: 'pending',
+        );
+        Logger.db('INSERT', 'invoice_items', {
+          'id': item.id,
+          'invoiceId': invoiceId,
+        });
+        await _db.into(_db.invoiceItems).insert(itemToInsert);
       }
     });
+
+    await _syncQueue.queueUpdate('invoices', invoiceId);
+    for (final item in items) {
+      await _syncQueue.queueInsert('invoice_items', item.id);
+    }
     Logger.success('Invoice items updated', tag: 'REPO');
   }
 

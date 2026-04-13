@@ -5,6 +5,13 @@ import 'tables/tables.dart';
 
 part 'database.g.dart';
 
+AppDatabase? _database;
+
+AppDatabase getDatabase() {
+  _database ??= AppDatabase._internal();
+  return _database!;
+}
+
 @DriftDatabase(
   tables: [
     Profiles,
@@ -21,10 +28,10 @@ part 'database.g.dart';
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase._internal() : super(_openConnection());
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration {
@@ -60,6 +67,9 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 7) {
           await m.addColumn(expenses, expenses.receiptLocalPath);
+        }
+        if (from < 8) {
+          await m.addColumn(invoiceItems, invoiceItems.syncStatus);
         }
       },
     );

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:konta/core/utils/logger.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 import 'package:konta/presentation/providers/auth_provider.dart';
+import 'package:konta/presentation/providers/sync_provider.dart';
 
 class AuthWrapperScreen extends ConsumerStatefulWidget {
   final Widget child;
@@ -61,7 +62,7 @@ class _AuthWrapperScreenState extends ConsumerState<AuthWrapperScreen> {
 
       if (mounted) setState(() => _status = 'Synchronisation...');
 
-      await ref.read(syncServiceProvider).syncAll();
+      await ref.read(syncControllerProvider).syncNow();
       Logger.ui('AuthWrapper', 'SYNC_COMPLETE');
 
       if (mounted) {

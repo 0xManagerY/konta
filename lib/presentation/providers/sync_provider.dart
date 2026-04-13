@@ -2,22 +2,10 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:konta/data/sync/sync_service.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
-import 'package:konta/presentation/providers/settings_provider.dart';
 
 final syncServiceProvider = Provider<SyncService>((ref) {
   final db = ref.watch(databaseProvider);
   return SyncService(db);
-});
-
-final pendingSyncCountProvider = StreamProvider<int>((ref) {
-  final db = ref.watch(databaseProvider);
-  return (db.select(db.syncQueue)).watch().map((list) => list.length);
-});
-
-final syncStatusProvider = StreamProvider<bool>((ref) {
-  final syncService = ref.watch(syncServiceProvider);
-  final autoSyncEnabled = ref.watch(settingsProvider).autoSyncEnabled;
-  return syncService.syncStatusWithSetting(autoSyncEnabled);
 });
 
 final isSyncingProvider = StateProvider<bool>((ref) => false);
@@ -28,6 +16,7 @@ final syncControllerProvider = Provider<SyncController>((ref) {
 
 class SyncController {
   final Ref _ref;
+  Timer? _periodicTimer;
 
   SyncController(this._ref);
 
@@ -40,7 +29,25 @@ class SyncController {
     }
   }
 
+  void startPeriodicSync({Duration interval = const Duration(minutes: 1)}) {
+    _periodicTimer?.cancel();
+    _periodicTimer = Timer.periodic(interval, (_) async {
+      if (!_ref.read(isSyncingProvider)) {
+        await syncNow();
+      }
+    });
+  }
+
+  void stopPeriodicSync() {
+    _periodicTimer?.cancel();
+    _periodicTimer = null;
+  }
+
   Future<int> getPendingCount() async {
     return _ref.read(syncServiceProvider).getPendingCount();
+  }
+
+  void dispose() {
+    stopPeriodicSync();
   }
 }

@@ -6,6 +6,7 @@ import 'package:konta/data/local/database.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 import 'package:konta/core/utils/logger.dart';
 import 'package:konta/presentation/providers/auth_provider.dart';
+import 'package:konta/presentation/providers/sync_provider.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -87,7 +88,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     try {
       final repo = ref.read(profileRepoProvider);
-      final syncService = ref.read(syncServiceProvider);
+      final syncController = ref.read(syncControllerProvider);
       final userId = SupabaseService.currentUserId;
       final userEmail = SupabaseService.auth.currentUser?.email ?? '';
 
@@ -148,7 +149,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       Logger.ui('OnboardingScreen', 'PROFILE_UPSERTED_OK');
 
       Logger.ui('OnboardingScreen', 'CALLING SYNC_ALL');
-      await syncService.syncAll();
+      await syncController.syncNow();
       Logger.ui('OnboardingScreen', 'SYNC_COMPLETE_OK');
 
       if (mounted) {

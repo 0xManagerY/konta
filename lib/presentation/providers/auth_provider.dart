@@ -2,22 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:konta/data/local/database.dart';
 import 'package:konta/data/repositories/profile_repository.dart';
 import 'package:konta/data/remote/supabase_service.dart';
-import 'package:konta/data/sync/sync_service.dart';
+import 'package:konta/presentation/providers/database_provider.dart';
+import 'package:konta/presentation/providers/sync_provider.dart';
 import 'package:konta/core/utils/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-final databaseProvider = Provider<AppDatabase>((ref) {
-  return AppDatabase();
-});
 
 final profileRepoProvider = Provider<ProfileRepository>((ref) {
   final db = ref.watch(databaseProvider);
   return ProfileRepository(db);
-});
-
-final syncServiceProvider = Provider<SyncService>((ref) {
-  final db = ref.watch(databaseProvider);
-  return SyncService(db);
 });
 
 final authStateProvider = StreamProvider<AuthState>((ref) {
