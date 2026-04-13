@@ -91,6 +91,15 @@ class SyncService {
     }
 
     switch (op.tblName) {
+      case 'profiles':
+        if (op.operation == 'delete') {
+          Logger.network('DELETE', 'profiles/${op.recordId}');
+          await client.from('profiles').delete().eq('id', op.recordId);
+        } else {
+          Logger.network('UPSERT', 'profiles', data);
+          await client.from('profiles').upsert(data, onConflict: 'id');
+        }
+        break;
       case 'customers':
         if (op.operation == 'delete') {
           Logger.network('DELETE', 'customers/${op.recordId}');
@@ -100,6 +109,15 @@ class SyncService {
           await client.from('customers').upsert(data, onConflict: 'id');
         }
         break;
+      case 'products':
+        if (op.operation == 'delete') {
+          Logger.network('DELETE', 'products/${op.recordId}');
+          await client.from('products').delete().eq('id', op.recordId);
+        } else {
+          Logger.network('UPSERT', 'products', data);
+          await client.from('products').upsert(data, onConflict: 'id');
+        }
+        break;
       case 'invoices':
         if (op.operation == 'delete') {
           Logger.network('DELETE', 'invoices/${op.recordId}');
@@ -107,6 +125,15 @@ class SyncService {
         } else {
           Logger.network('UPSERT', 'invoices', data);
           await client.from('invoices').upsert(data, onConflict: 'id');
+        }
+        break;
+      case 'invoice_items':
+        if (op.operation == 'delete') {
+          Logger.network('DELETE', 'invoice_items/${op.recordId}');
+          await client.from('invoice_items').delete().eq('id', op.recordId);
+        } else {
+          Logger.network('UPSERT', 'invoice_items', data);
+          await client.from('invoice_items').upsert(data, onConflict: 'id');
         }
         break;
       case 'expenses':
@@ -127,6 +154,15 @@ class SyncService {
           await client.from('payments').upsert(data, onConflict: 'id');
         }
         break;
+      case 'owner_salaries':
+        if (op.operation == 'delete') {
+          Logger.network('DELETE', 'owner_salaries/${op.recordId}');
+          await client.from('owner_salaries').delete().eq('id', op.recordId);
+        } else {
+          Logger.network('UPSERT', 'owner_salaries', data);
+          await client.from('owner_salaries').upsert(data, onConflict: 'id');
+        }
+        break;
       default:
         Logger.warning('UNKNOWN_TABLE: ${op.tblName}', tag: 'SYNC');
         return false;
@@ -144,12 +180,54 @@ class SyncService {
 
     final client = SupabaseService.client;
 
+    Logger.sync('PULL_TABLE', 'profiles');
+    await _pullProfiles(userId, client);
+    Logger.sync('PULL_TABLE', 'products');
+    await _pullTable('products', userId, client);
     Logger.sync('PULL_TABLE', 'customers');
     await _pullTable('customers', userId, client);
     Logger.sync('PULL_TABLE', 'invoices');
     await _pullTable('invoices', userId, client);
+    Logger.sync('PULL_TABLE', 'invoice_items');
+    await _pullInvoiceItems(userId, client);
     Logger.sync('PULL_TABLE', 'expenses');
     await _pullTable('expenses', userId, client);
+    Logger.sync('PULL_TABLE', 'owner_salaries');
+    await _pullTable('owner_salaries', userId, client);
+  }
+
+  Future<void> _pullProfiles(String userId, SupabaseClient client) async {
+    final response = await client
+        .from('profiles')
+        .select()
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (response != null) {
+      Logger.sync('PULL_ROWS', 'profiles: 1 record');
+      await _upsertProfileLocal(response);
+    }
+  }
+
+  Future<void> _pullInvoiceItems(String userId, SupabaseClient client) async {
+    final invoices = await client
+        .from('invoices')
+        .select('id')
+        .eq('user_id', userId);
+
+    for (final inv in invoices) {
+      final response = await client
+          .from('invoice_items')
+          .select()
+          .eq('invoice_id', inv['id']);
+      Logger.sync(
+        'PULL_ROWS',
+        'invoice_items: ${response.length} for ${inv['id']}',
+      );
+      for (final row in response) {
+        await _upsertLocal('invoice_items', row);
+      }
+    }
   }
 
   Future<void> _pullTable(
@@ -172,6 +250,23 @@ class SyncService {
 
   Future<void> _upsertLocal(String table, Map<String, dynamic> data) async {
     switch (table) {
+      case 'products':
+        final existing = await (_db.select(
+          _db.products,
+        )..where((p) => p.id.equals(data['id']))).getSingleOrNull();
+
+        if (existing == null || existing.syncStatus == 'synced') {
+          Logger.db('UPSERT_LOCAL', 'products', {'id': data['id']});
+          await _db
+              .into(_db.products)
+              .insertOnConflictUpdate(Product.fromJson(data));
+        } else {
+          Logger.sync(
+            'SKIP_CONFLICT',
+            'products/${data['id']} (pending local changes)',
+          );
+        }
+        break;
       case 'customers':
         final existing = await (_db.select(
           _db.customers,
@@ -206,6 +301,21 @@ class SyncService {
           );
         }
         break;
+      case 'invoice_items':
+        final existing = await (_db.select(
+          _db.invoiceItems,
+        )..where((i) => i.id.equals(data['id']))).getSingleOrNull();
+
+        if (existing == null) {
+          Logger.db('UPSERT_LOCAL', 'invoice_items', {'id': data['id']});
+          await _db.into(_db.invoiceItems).insert(InvoiceItem.fromJson(data));
+        } else {
+          Logger.db('UPDATE_LOCAL', 'invoice_items', {'id': data['id']});
+          await _db
+              .update(_db.invoiceItems)
+              .replace(InvoiceItem.fromJson(data));
+        }
+        break;
       case 'expenses':
         final existing = await (_db.select(
           _db.expenses,
@@ -223,6 +333,41 @@ class SyncService {
           );
         }
         break;
+      case 'owner_salaries':
+        final existing = await (_db.select(
+          _db.ownerSalaries,
+        )..where((o) => o.id.equals(data['id']))).getSingleOrNull();
+
+        if (existing == null || existing.syncStatus == 'synced') {
+          Logger.db('UPSERT_LOCAL', 'owner_salaries', {'id': data['id']});
+          await _db
+              .into(_db.ownerSalaries)
+              .insertOnConflictUpdate(OwnerSalary.fromJson(data));
+        } else {
+          Logger.sync(
+            'SKIP_CONFLICT',
+            'owner_salaries/${data['id']} (pending local changes)',
+          );
+        }
+        break;
+    }
+  }
+
+  Future<void> _upsertProfileLocal(Map<String, dynamic> data) async {
+    final existing = await (_db.select(
+      _db.profiles,
+    )..where((p) => p.id.equals(data['id']))).getSingleOrNull();
+
+    if (existing == null || existing.syncStatus == 'synced') {
+      Logger.db('UPSERT_LOCAL', 'profiles', {'id': data['id']});
+      await _db
+          .into(_db.profiles)
+          .insertOnConflictUpdate(Profile.fromJson(data));
+    } else {
+      Logger.sync(
+        'SKIP_CONFLICT',
+        'profiles/${data['id']} (pending local changes)',
+      );
     }
   }
 
@@ -317,6 +462,27 @@ class SyncService {
 
   Future<Map<String, dynamic>?> getRecord(String table, String id) async {
     switch (table) {
+      case 'profiles':
+        final record = await (_db.select(
+          _db.profiles,
+        )..where((p) => p.id.equals(id))).getSingleOrNull();
+        if (record == null) return null;
+        return {
+          'id': record.id,
+          'email': record.email,
+          'company_name': record.companyName,
+          'legal_status': record.legalStatus,
+          'ice': record.ice,
+          'if_number': record.ifNumber,
+          'rc': record.rc,
+          'cnss': record.cnss,
+          'address': record.address,
+          'phone': record.phone,
+          'logo_url': record.logoUrl,
+          'is_auto_entrepreneur': record.isAutoEntrepreneur,
+          'created_at': record.createdAt.toIso8601String(),
+          'updated_at': record.updatedAt.toIso8601String(),
+        };
       case 'customers':
         final record = await (_db.select(
           _db.customers,
@@ -327,9 +493,30 @@ class SyncService {
           'user_id': record.userId,
           'name': record.name,
           'ice': record.ice,
+          'rc': record.rc,
+          'if_number': record.ifNumber,
+          'patente': record.patente,
+          'cnss': record.cnss,
+          'legal_form': record.legalForm,
+          'capital': record.capital,
+          'status': record.status,
           'address': record.address,
           'phones': record.phones,
+          'fax': record.fax,
           'emails': record.emails,
+          'created_at': record.createdAt.toIso8601String(),
+          'updated_at': record.updatedAt.toIso8601String(),
+        };
+      case 'products':
+        final record = await (_db.select(
+          _db.products,
+        )..where((p) => p.id.equals(id))).getSingleOrNull();
+        if (record == null) return null;
+        return {
+          'id': record.id,
+          'user_id': record.userId,
+          'name': record.name,
+          'description': record.description,
           'created_at': record.createdAt.toIso8601String(),
           'updated_at': record.updatedAt.toIso8601String(),
         };
@@ -351,20 +538,10 @@ class SyncService {
           'tva_amount': record.tvaAmount,
           'total': record.total,
           'notes': record.notes,
+          'parent_document_id': record.parentDocumentId,
+          'parent_document_type': record.parentDocumentType,
+          'refund_reason': record.refundReason,
           'is_converted': record.isConverted,
-          'created_at': record.createdAt.toIso8601String(),
-          'updated_at': record.updatedAt.toIso8601String(),
-        };
-      case 'products':
-        final record = await (_db.select(
-          _db.products,
-        )..where((p) => p.id.equals(id))).getSingleOrNull();
-        if (record == null) return null;
-        return {
-          'id': record.id,
-          'user_id': record.userId,
-          'name': record.name,
-          'description': record.description,
           'created_at': record.createdAt.toIso8601String(),
           'updated_at': record.updatedAt.toIso8601String(),
         };
@@ -416,6 +593,20 @@ class SyncService {
           'payment_date': record.paymentDate.toIso8601String(),
           'check_due_date': record.checkDueDate?.toIso8601String(),
           'notes': record.notes,
+          'created_at': record.createdAt.toIso8601String(),
+        };
+      case 'owner_salaries':
+        final record = await (_db.select(
+          _db.ownerSalaries,
+        )..where((o) => o.id.equals(id))).getSingleOrNull();
+        if (record == null) return null;
+        return {
+          'id': record.id,
+          'user_id': record.userId,
+          'amount': record.amount,
+          'month': record.month,
+          'year': record.year,
+          'payment_date': record.paymentDate?.toIso8601String(),
           'created_at': record.createdAt.toIso8601String(),
         };
       default:

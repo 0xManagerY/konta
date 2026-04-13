@@ -89,6 +89,9 @@ class InvoiceRepository {
       }
     });
     await _syncQueue.queueInsert('invoices', invoice.id);
+    for (final item in items) {
+      await _syncQueue.queueInsert('invoice_items', item.id);
+    }
     Logger.success('Invoice with items inserted', tag: 'REPO');
   }
 
@@ -228,6 +231,10 @@ class InvoiceRepository {
       'invoiceId': invoiceId,
       'itemsCount': items.length,
     });
+    final oldItems = await getItems(invoiceId);
+    for (final old in oldItems) {
+      await _syncQueue.queueDelete('invoice_items', old.id);
+    }
     await _db.transaction(() async {
       await (_db.delete(
         _db.invoiceItems,
@@ -235,6 +242,7 @@ class InvoiceRepository {
       for (final item in items) {
         Logger.db('INSERT', 'invoice_items', {'id': item.id});
         await _db.into(_db.invoiceItems).insert(item);
+        await _syncQueue.queueInsert('invoice_items', item.id);
       }
     });
     Logger.success('Invoice items updated', tag: 'REPO');
@@ -243,6 +251,10 @@ class InvoiceRepository {
   Future<void> delete(String id) async {
     Logger.method('InvoiceRepository', 'delete', {'id': id});
     Logger.db('DELETE', 'invoices', {'id': id});
+    final items = await getItems(id);
+    for (final item in items) {
+      await _syncQueue.queueDelete('invoice_items', item.id);
+    }
     await _syncQueue.queueDelete('invoices', id);
     await _db.transaction(() async {
       await (_db.delete(

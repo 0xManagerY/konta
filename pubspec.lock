@@ -329,6 +329,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.1"
+  decimal:
+    dependency: transitive
+    description:
+      name: decimal
+      sha256: fc706a5618b81e5b367b01dd62621def37abc096f2b46a9bd9068b64c1fa36d0
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.2.4"
   drift:
     dependency: "direct main"
     description:
@@ -893,6 +901,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.17.6"
+  num2text:
+    dependency: "direct main"
+    description:
+      name: num2text
+      sha256: a6ec89896e5bcac0b79e6e2c9492c75150c17b4625473439fc2ec94c957c8e6a
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.4"
   objective_c:
     dependency: transitive
     description:
@@ -1069,6 +1085,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.2"
+  rational:
+    dependency: transitive
+    description:
+      name: rational
+      sha256: cb808fb6f1a839e6fc5f7d8cb3b0a10e1db48b3be102de73938c627f0b636336
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.2.3"
   realtime_client:
     dependency: transitive
     description:

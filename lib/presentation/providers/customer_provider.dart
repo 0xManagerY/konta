@@ -5,7 +5,6 @@ import 'package:konta/data/repositories/customer_repository.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 import 'package:konta/data/sync/sync_queue_helper.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
-import 'package:konta/presentation/providers/sync_provider.dart';
 
 final customerRepositoryProvider = Provider<CustomerRepository>((ref) {
   final db = ref.watch(databaseProvider);

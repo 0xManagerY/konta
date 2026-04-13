@@ -1,11 +1,12 @@
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:konta/data/local/database.dart';
-import 'package:konta/core/utils/number_to_words_fr.dart';
-import 'package:konta/core/utils/number_to_words_ar.dart';
+import 'package:num2text/num2text.dart';
 import 'package:konta/core/utils/logger.dart';
 
 class PdfService {
+  static final _num2text = Num2Text();
+
   static Future<pw.Document> generateInvoicePdf({
     required Profile company,
     required Customer customer,
@@ -21,8 +22,29 @@ class PdfService {
 
     final pdf = pw.Document();
 
-    final amountInWordsFr = FrenchNumberToWords.convert(invoice.total);
-    final amountInWordsAr = ArabicNumberToWords.convert(invoice.total);
+    final madFr = CurrencyInfo(
+      mainUnitSingular: 'dirham',
+      mainUnitPlural: 'dirhams',
+      subUnitSingular: 'centime',
+      subUnitPlural: 'centimes',
+    );
+    final madAr = CurrencyInfo(
+      mainUnitSingular: 'درهم',
+      mainUnitPlural: 'دراهم',
+      subUnitSingular: 'سنتيم',
+      subUnitPlural: 'سنتيمات',
+    );
+
+    _num2text.setLang(Lang.FR);
+    final amountInWordsFr = _num2text.convert(
+      invoice.total,
+      options: FrOptions(currency: true, currencyInfo: madFr),
+    );
+    _num2text.setLang(Lang.AR);
+    final amountInWordsAr = _num2text.convert(
+      invoice.total,
+      options: ArOptions(currency: true, currencyInfo: madAr),
+    );
 
     pdf.addPage(
       pw.MultiPage(
