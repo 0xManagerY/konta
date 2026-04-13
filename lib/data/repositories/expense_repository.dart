@@ -33,7 +33,26 @@ class ExpenseRepository {
       'id': expense.id,
       'amount': expense.amount,
     });
-    await _db.into(_db.expenses).insert(expense);
+    await _db
+        .into(_db.expenses)
+        .insert(
+          ExpensesCompanion(
+            id: Value(expense.id),
+            userId: Value(expense.userId),
+            category: Value(expense.category),
+            amount: Value(expense.amount),
+            tvaAmount: Value(expense.tvaAmount),
+            date: Value(expense.date),
+            description: Value(expense.description),
+            receiptUrl: Value(expense.receiptUrl),
+            receiptLocalPath: Value(expense.receiptLocalPath),
+            isDeductible: Value(expense.isDeductible),
+            createdAt: Value(expense.createdAt),
+            updatedAt: Value(expense.updatedAt),
+            syncStatus: const Value('pending'),
+          ),
+        );
+    await _syncQueue.queueInsert('expenses', expense.id);
     Logger.success('Expense inserted', tag: 'REPO');
   }
 

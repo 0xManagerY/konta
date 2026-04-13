@@ -1109,6 +1109,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
         unitPrice: item.unitPrice,
         tvaRate: item.tvaRate,
         total: item.total,
+        syncStatus: 'pending',
       ),
     );
 

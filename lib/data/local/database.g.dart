@@ -3453,6 +3453,18 @@ class $InvoiceItemsTable extends InvoiceItems
     type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3464,6 +3476,7 @@ class $InvoiceItemsTable extends InvoiceItems
     unitPrice,
     tvaRate,
     total,
+    syncStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3544,6 +3557,12 @@ class $InvoiceItemsTable extends InvoiceItems
     } else if (isInserting) {
       context.missing(_totalMeta);
     }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
     return context;
   }
 
@@ -3589,6 +3608,10 @@ class $InvoiceItemsTable extends InvoiceItems
         DriftSqlType.double,
         data['${effectivePrefix}total'],
       )!,
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      )!,
     );
   }
 
@@ -3608,6 +3631,7 @@ class InvoiceItem extends DataClass implements Insertable<InvoiceItem> {
   final double unitPrice;
   final double tvaRate;
   final double total;
+  final String syncStatus;
   const InvoiceItem({
     required this.id,
     required this.invoiceId,
@@ -3618,6 +3642,7 @@ class InvoiceItem extends DataClass implements Insertable<InvoiceItem> {
     required this.unitPrice,
     required this.tvaRate,
     required this.total,
+    required this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3635,6 +3660,7 @@ class InvoiceItem extends DataClass implements Insertable<InvoiceItem> {
     map['unit_price'] = Variable<double>(unitPrice);
     map['tva_rate'] = Variable<double>(tvaRate);
     map['total'] = Variable<double>(total);
+    map['sync_status'] = Variable<String>(syncStatus);
     return map;
   }
 
@@ -3653,6 +3679,7 @@ class InvoiceItem extends DataClass implements Insertable<InvoiceItem> {
       unitPrice: Value(unitPrice),
       tvaRate: Value(tvaRate),
       total: Value(total),
+      syncStatus: Value(syncStatus),
     );
   }
 
@@ -3671,6 +3698,7 @@ class InvoiceItem extends DataClass implements Insertable<InvoiceItem> {
       unitPrice: serializer.fromJson<double>(json['unitPrice']),
       tvaRate: serializer.fromJson<double>(json['tvaRate']),
       total: serializer.fromJson<double>(json['total']),
+      syncStatus: serializer.fromJson<String>(json['syncStatus']),
     );
   }
   @override
@@ -3686,6 +3714,7 @@ class InvoiceItem extends DataClass implements Insertable<InvoiceItem> {
       'unitPrice': serializer.toJson<double>(unitPrice),
       'tvaRate': serializer.toJson<double>(tvaRate),
       'total': serializer.toJson<double>(total),
+      'syncStatus': serializer.toJson<String>(syncStatus),
     };
   }
 
@@ -3699,6 +3728,7 @@ class InvoiceItem extends DataClass implements Insertable<InvoiceItem> {
     double? unitPrice,
     double? tvaRate,
     double? total,
+    String? syncStatus,
   }) => InvoiceItem(
     id: id ?? this.id,
     invoiceId: invoiceId ?? this.invoiceId,
@@ -3709,6 +3739,7 @@ class InvoiceItem extends DataClass implements Insertable<InvoiceItem> {
     unitPrice: unitPrice ?? this.unitPrice,
     tvaRate: tvaRate ?? this.tvaRate,
     total: total ?? this.total,
+    syncStatus: syncStatus ?? this.syncStatus,
   );
   InvoiceItem copyWithCompanion(InvoiceItemsCompanion data) {
     return InvoiceItem(
@@ -3725,6 +3756,9 @@ class InvoiceItem extends DataClass implements Insertable<InvoiceItem> {
       unitPrice: data.unitPrice.present ? data.unitPrice.value : this.unitPrice,
       tvaRate: data.tvaRate.present ? data.tvaRate.value : this.tvaRate,
       total: data.total.present ? data.total.value : this.total,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
     );
   }
 
@@ -3739,7 +3773,8 @@ class InvoiceItem extends DataClass implements Insertable<InvoiceItem> {
           ..write('quantity: $quantity, ')
           ..write('unitPrice: $unitPrice, ')
           ..write('tvaRate: $tvaRate, ')
-          ..write('total: $total')
+          ..write('total: $total, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -3755,6 +3790,7 @@ class InvoiceItem extends DataClass implements Insertable<InvoiceItem> {
     unitPrice,
     tvaRate,
     total,
+    syncStatus,
   );
   @override
   bool operator ==(Object other) =>
@@ -3768,7 +3804,8 @@ class InvoiceItem extends DataClass implements Insertable<InvoiceItem> {
           other.quantity == this.quantity &&
           other.unitPrice == this.unitPrice &&
           other.tvaRate == this.tvaRate &&
-          other.total == this.total);
+          other.total == this.total &&
+          other.syncStatus == this.syncStatus);
 }
 
 class InvoiceItemsCompanion extends UpdateCompanion<InvoiceItem> {
@@ -3781,6 +3818,7 @@ class InvoiceItemsCompanion extends UpdateCompanion<InvoiceItem> {
   final Value<double> unitPrice;
   final Value<double> tvaRate;
   final Value<double> total;
+  final Value<String> syncStatus;
   final Value<int> rowid;
   const InvoiceItemsCompanion({
     this.id = const Value.absent(),
@@ -3792,6 +3830,7 @@ class InvoiceItemsCompanion extends UpdateCompanion<InvoiceItem> {
     this.unitPrice = const Value.absent(),
     this.tvaRate = const Value.absent(),
     this.total = const Value.absent(),
+    this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   InvoiceItemsCompanion.insert({
@@ -3804,6 +3843,7 @@ class InvoiceItemsCompanion extends UpdateCompanion<InvoiceItem> {
     required double unitPrice,
     this.tvaRate = const Value.absent(),
     required double total,
+    this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        invoiceId = Value(invoiceId),
@@ -3820,6 +3860,7 @@ class InvoiceItemsCompanion extends UpdateCompanion<InvoiceItem> {
     Expression<double>? unitPrice,
     Expression<double>? tvaRate,
     Expression<double>? total,
+    Expression<String>? syncStatus,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3832,6 +3873,7 @@ class InvoiceItemsCompanion extends UpdateCompanion<InvoiceItem> {
       if (unitPrice != null) 'unit_price': unitPrice,
       if (tvaRate != null) 'tva_rate': tvaRate,
       if (total != null) 'total': total,
+      if (syncStatus != null) 'sync_status': syncStatus,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3846,6 +3888,7 @@ class InvoiceItemsCompanion extends UpdateCompanion<InvoiceItem> {
     Value<double>? unitPrice,
     Value<double>? tvaRate,
     Value<double>? total,
+    Value<String>? syncStatus,
     Value<int>? rowid,
   }) {
     return InvoiceItemsCompanion(
@@ -3858,6 +3901,7 @@ class InvoiceItemsCompanion extends UpdateCompanion<InvoiceItem> {
       unitPrice: unitPrice ?? this.unitPrice,
       tvaRate: tvaRate ?? this.tvaRate,
       total: total ?? this.total,
+      syncStatus: syncStatus ?? this.syncStatus,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3892,6 +3936,9 @@ class InvoiceItemsCompanion extends UpdateCompanion<InvoiceItem> {
     if (total.present) {
       map['total'] = Variable<double>(total.value);
     }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3910,6 +3957,7 @@ class InvoiceItemsCompanion extends UpdateCompanion<InvoiceItem> {
           ..write('unitPrice: $unitPrice, ')
           ..write('tvaRate: $tvaRate, ')
           ..write('total: $total, ')
+          ..write('syncStatus: $syncStatus, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -8614,6 +8662,7 @@ typedef $$InvoiceItemsTableCreateCompanionBuilder =
       required double unitPrice,
       Value<double> tvaRate,
       required double total,
+      Value<String> syncStatus,
       Value<int> rowid,
     });
 typedef $$InvoiceItemsTableUpdateCompanionBuilder =
@@ -8627,6 +8676,7 @@ typedef $$InvoiceItemsTableUpdateCompanionBuilder =
       Value<double> unitPrice,
       Value<double> tvaRate,
       Value<double> total,
+      Value<String> syncStatus,
       Value<int> rowid,
     });
 
@@ -8681,6 +8731,11 @@ class $$InvoiceItemsTableFilterComposer
 
   ColumnFilters<double> get total => $composableBuilder(
     column: $table.total,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -8738,6 +8793,11 @@ class $$InvoiceItemsTableOrderingComposer
     column: $table.total,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$InvoiceItemsTableAnnotationComposer
@@ -8779,6 +8839,11 @@ class $$InvoiceItemsTableAnnotationComposer
 
   GeneratedColumn<double> get total =>
       $composableBuilder(column: $table.total, builder: (column) => column);
+
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
 }
 
 class $$InvoiceItemsTableTableManager
@@ -8821,6 +8886,7 @@ class $$InvoiceItemsTableTableManager
                 Value<double> unitPrice = const Value.absent(),
                 Value<double> tvaRate = const Value.absent(),
                 Value<double> total = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => InvoiceItemsCompanion(
                 id: id,
@@ -8832,6 +8898,7 @@ class $$InvoiceItemsTableTableManager
                 unitPrice: unitPrice,
                 tvaRate: tvaRate,
                 total: total,
+                syncStatus: syncStatus,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8845,6 +8912,7 @@ class $$InvoiceItemsTableTableManager
                 required double unitPrice,
                 Value<double> tvaRate = const Value.absent(),
                 required double total,
+                Value<String> syncStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => InvoiceItemsCompanion.insert(
                 id: id,
@@ -8856,6 +8924,7 @@ class $$InvoiceItemsTableTableManager
                 unitPrice: unitPrice,
                 tvaRate: tvaRate,
                 total: total,
+                syncStatus: syncStatus,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

@@ -138,6 +138,7 @@ class InvoiceRepository {
             unitPrice: item.unitPrice,
             tvaRate: item.tvaRate,
             total: item.total,
+            syncStatus: 'pending',
           ),
         )
         .toList();
@@ -207,6 +208,7 @@ class InvoiceRepository {
             unitPrice: item.unitPrice,
             tvaRate: item.tvaRate,
             total: item.total * ratio,
+            syncStatus: 'pending',
           ),
         )
         .toList();

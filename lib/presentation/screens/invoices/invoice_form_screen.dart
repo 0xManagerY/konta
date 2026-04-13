@@ -118,6 +118,7 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
           unitPrice: 0,
           tvaRate: 20,
           total: 0,
+          syncStatus: 'pending',
         ),
       );
     });
@@ -267,6 +268,7 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
               unitPrice: item.unitPrice,
               tvaRate: item.tvaRate,
               total: item.quantity * item.unitPrice,
+              syncStatus: 'pending',
             ),
           )
           .toList();

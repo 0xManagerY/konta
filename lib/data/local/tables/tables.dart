@@ -109,6 +109,8 @@ class InvoiceItems extends Table {
   RealColumn get tvaRate =>
       real().named('tva_rate').withDefault(const Constant(20))();
   RealColumn get total => real()();
+  TextColumn get syncStatus =>
+      text().named('sync_status').withDefault(const Constant('pending'))();
 
   @override
   Set<Column> get primaryKey => {id};

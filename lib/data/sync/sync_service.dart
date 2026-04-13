@@ -194,8 +194,8 @@ class SyncService {
     await _pullInvoiceItems(userId, client);
     Logger.sync('PULL_TABLE', 'expenses');
     await _pullTable('expenses', userId, client);
-    Logger.sync('PULL_TABLE', 'owner_salaries');
-    await _pullTable('owner_salaries', userId, client);
+    Logger.sync('PULL_TABLE', 'payments');
+    await _pullPayments(userId, client);
   }
 
   Future<void> _pullProfiles(String userId, SupabaseClient client) async {
@@ -228,6 +228,24 @@ class SyncService {
       );
       for (final row in response) {
         await _upsertLocal('invoice_items', row);
+      }
+    }
+  }
+
+  Future<void> _pullPayments(String userId, SupabaseClient client) async {
+    final invoices = await client
+        .from('invoices')
+        .select('id')
+        .eq('user_id', userId);
+
+    for (final inv in invoices) {
+      final response = await client
+          .from('payments')
+          .select()
+          .eq('invoice_id', inv['id']);
+      Logger.sync('PULL_ROWS', 'payments: ${response.length} for ${inv['id']}');
+      for (final row in response) {
+        await _upsertPaymentLocal(row);
       }
     }
   }
@@ -304,18 +322,20 @@ class SyncService {
         }
         break;
       case 'invoice_items':
-        final existing = await (_db.select(
+        final existingItem = await (_db.select(
           _db.invoiceItems,
         )..where((i) => i.id.equals(data['id']))).getSingleOrNull();
 
-        if (existing == null) {
+        if (existingItem == null || existingItem.syncStatus == 'synced') {
           Logger.db('UPSERT_LOCAL', 'invoice_items', {'id': data['id']});
-          await _db.into(_db.invoiceItems).insert(InvoiceItem.fromJson(data));
-        } else {
-          Logger.db('UPDATE_LOCAL', 'invoice_items', {'id': data['id']});
           await _db
-              .update(_db.invoiceItems)
-              .replace(InvoiceItem.fromJson(data));
+              .into(_db.invoiceItems)
+              .insertOnConflictUpdate(InvoiceItem.fromJson(data));
+        } else {
+          Logger.sync(
+            'SKIP_CONFLICT',
+            'invoice_items/${data['id']} (pending local changes)',
+          );
         }
         break;
       case 'expenses':
@@ -369,6 +389,24 @@ class SyncService {
       Logger.sync(
         'SKIP_CONFLICT',
         'profiles/${data['id']} (pending local changes)',
+      );
+    }
+  }
+
+  Future<void> _upsertPaymentLocal(Map<String, dynamic> data) async {
+    final existing = await (_db.select(
+      _db.payments,
+    )..where((p) => p.id.equals(data['id']))).getSingleOrNull();
+
+    if (existing == null || existing.syncStatus == 'synced') {
+      Logger.db('UPSERT_LOCAL', 'payments', {'id': data['id']});
+      await _db
+          .into(_db.payments)
+          .insertOnConflictUpdate(Payment.fromJson(data));
+    } else {
+      Logger.sync(
+        'SKIP_CONFLICT',
+        'payments/${data['id']} (pending local changes)',
       );
     }
   }
@@ -621,6 +659,14 @@ class SyncService {
     Logger.db('MARK_SYNCED', table, {'id': id});
 
     switch (table) {
+      case 'profiles':
+        await (_db.update(_db.profiles)..where((p) => p.id.equals(id))).write(
+          ProfilesCompanion(
+            syncStatus: const Value('synced'),
+            updatedAt: Value(now),
+          ),
+        );
+        break;
       case 'customers':
         await (_db.update(_db.customers)..where((c) => c.id.equals(id))).write(
           CustomersCompanion(
@@ -654,7 +700,7 @@ class SyncService {
         await (_db.update(_db.products)..where((p) => p.id.equals(id))).write(
           ProductsCompanion(
             syncStatus: const Value('synced'),
-            updatedAt: Value(DateTime.now()),
+            updatedAt: Value(now),
           ),
         );
         break;
