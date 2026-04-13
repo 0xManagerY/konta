@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:konta/core/utils/logger.dart';
 import 'package:konta/domain/services/export_service.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
 import 'package:konta/presentation/providers/invoice_provider.dart';
@@ -20,6 +21,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Logger.ui('ExportScreen', 'BUILD');
     return Scaffold(
       appBar: AppBar(title: const Text('Export mensuel')),
       body: Padding(
@@ -149,6 +151,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   }
 
   Future<void> _selectMonth() async {
+    Logger.ui('ExportScreen', 'SELECT_MONTH');
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedMonth,
@@ -166,6 +169,11 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   }
 
   Future<void> _exportMonth() async {
+    Logger.ui(
+      'ExportScreen',
+      'EXPORT_MONTH',
+      '${_getMonthName(_selectedMonth.month)} ${_selectedMonth.year}',
+    );
     final db = ref.read(databaseProvider);
     final userId = SupabaseService.currentUserId;
     if (userId == null) return;

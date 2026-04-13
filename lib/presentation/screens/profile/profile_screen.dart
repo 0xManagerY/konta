@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:konta/core/utils/logger.dart';
 import 'package:konta/data/local/database.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 import 'package:konta/data/repositories/profile_repository.dart';
@@ -49,6 +50,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   void dispose() {
+    Logger.ui('ProfileScreen', 'DISPOSE');
     _companyNameController.dispose();
     _iceController.dispose();
     _ifController.dispose();
@@ -62,6 +64,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Logger.ui('ProfileScreen', 'BUILD');
     final profileAsync = ref.watch(_profileProvider);
 
     return Scaffold(
@@ -72,6 +75,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: () {
+                Logger.ui('ProfileScreen', 'EDIT_BUTTON_TAP');
                 final profile = profileAsync.valueOrNull;
                 if (profile != null) {
                   _companyNameController.text = profile.companyName;
@@ -449,6 +453,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _pickLogo() async {
+    Logger.ui('ProfileScreen', 'PICK_LOGO');
     final picker = ImagePicker();
     final image = await picker.pickImage(
       source: ImageSource.gallery,
@@ -464,6 +469,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _saveProfile(Profile profile) async {
+    Logger.ui(
+      'ProfileScreen',
+      'SAVE_PROFILE',
+      'company: ${_companyNameController.text}',
+    );
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);

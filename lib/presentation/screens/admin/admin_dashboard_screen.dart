@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:konta/core/utils/logger.dart';
 import 'package:konta/presentation/screens/admin/audit_log_screen.dart';
 import 'package:konta/presentation/screens/admin/admin_settings_screen.dart';
 
@@ -8,6 +9,7 @@ class AdminDashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    Logger.ui('AdminDashboardScreen', 'BUILD');
     return Scaffold(
       appBar: AppBar(
         title: const Text('SuperAdmin'),
@@ -22,10 +24,19 @@ class AdminDashboardScreen extends ConsumerWidget {
               title: const Text('Paramètres globaux'),
               subtitle: const Text('Gérer les paramètres de l\'application'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AdminSettingsScreen()),
-              ),
+              onTap: () {
+                Logger.ui(
+                  'AdminDashboardScreen',
+                  'NAVIGATE',
+                  'AdminSettingsScreen',
+                );
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AdminSettingsScreen(),
+                  ),
+                );
+              },
             ),
           ),
           const SizedBox(height: 8),
@@ -35,10 +46,13 @@ class AdminDashboardScreen extends ConsumerWidget {
               title: const Text('Journal d\'audit'),
               subtitle: const Text('Voir toutes les actions'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AuditLogScreen()),
-              ),
+              onTap: () {
+                Logger.ui('AdminDashboardScreen', 'NAVIGATE', 'AuditLogScreen');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AuditLogScreen()),
+                );
+              },
             ),
           ),
           const SizedBox(height: 8),
@@ -49,6 +63,7 @@ class AdminDashboardScreen extends ConsumerWidget {
               subtitle: const Text('Gérer les comptes utilisateurs'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
+                Logger.ui('AdminDashboardScreen', 'USERS_TAP');
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Fonctionnalité à venir')),
                 );
@@ -63,6 +78,7 @@ class AdminDashboardScreen extends ConsumerWidget {
               subtitle: const Text('Forcer la sync ou voir le statut'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
+                Logger.ui('AdminDashboardScreen', 'SYNC_TAP');
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Fonctionnalité à venir')),
                 );

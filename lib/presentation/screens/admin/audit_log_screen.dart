@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' hide Column, Table;
+import 'package:konta/core/utils/logger.dart';
 import 'package:konta/data/local/database.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
 
@@ -9,6 +10,7 @@ class AuditLogScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    Logger.ui('AuditLogScreen', 'BUILD');
     final db = ref.watch(databaseProvider);
     final logsAsync = ref.watch(
       StreamProvider<List<AuditLog>>((ref) {

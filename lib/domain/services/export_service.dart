@@ -7,6 +7,7 @@ import 'package:konta/domain/services/pdf_service.dart';
 import 'package:konta/data/repositories/invoice_repository.dart';
 import 'package:konta/data/repositories/expense_repository.dart';
 import 'package:konta/data/repositories/customer_repository.dart';
+import 'package:konta/core/utils/logger.dart';
 
 class ExportService {
   final InvoiceRepository _invoiceRepo;
@@ -20,14 +21,20 @@ class ExportService {
     required int year,
     required int month,
   }) async {
+    Logger.method('ExportService', 'exportMonthlyBundle', {
+      'year': year,
+      'month': month,
+    });
     final directory = await getTemporaryDirectory();
     final exportDir = Directory(
       '${directory.path}/export_${year}_${month.toString().padLeft(2, '0')}',
     );
     if (exportDir.existsSync()) {
+      Logger.debug('Deleting existing export directory', tag: 'EXPORT');
       exportDir.deleteSync(recursive: true);
     }
     exportDir.createSync(recursive: true);
+    Logger.debug('Created export directory: ${exportDir.path}', tag: 'EXPORT');
 
     final invoices = await _invoiceRepo.getByType(company.id, 'invoice');
     final monthInvoices = invoices.where((i) {
@@ -35,9 +42,18 @@ class ExportService {
       final isSameMonth = i.issueDate.month == month;
       return isSameYear && isSameMonth;
     }).toList();
+    Logger.debug(
+      'Found ${monthInvoices.length} invoices for $year-$month',
+      tag: 'EXPORT',
+    );
 
     final expenses = await _expenseRepo.getByMonth(company.id, year, month);
+    Logger.debug(
+      'Found ${expenses.length} expenses for $year-$month',
+      tag: 'EXPORT',
+    );
 
+    Logger.ui('ExportService', 'CREATE_SALES_EXCEL');
     final salesExcel = await _createSalesExcel(
       company: company,
       invoices: monthInvoices,
@@ -46,16 +62,29 @@ class ExportService {
       '${exportDir.path}/ventes_${year}_${month.toString().padLeft(2, '0')}.xlsx',
     );
     salesFile.writeAsBytesSync(salesExcel);
+    Logger.success('Created sales Excel: ${salesFile.path}', tag: 'EXPORT');
 
+    Logger.ui('ExportService', 'CREATE_EXPENSES_EXCEL');
     final expensesExcel = await _createExpensesExcel(expenses: expenses);
     final expensesFile = File(
       '${exportDir.path}/depenses_${year}_${month.toString().padLeft(2, '0')}.xlsx',
     );
     expensesFile.writeAsBytesSync(expensesExcel);
+    Logger.success(
+      'Created expenses Excel: ${expensesFile.path}',
+      tag: 'EXPORT',
+    );
 
+    Logger.ui('ExportService', 'GENERATE_PDFS');
     for (final invoice in monthInvoices) {
       final customer = await _customerRepo.getById(invoice.customerId);
-      if (customer == null) continue;
+      if (customer == null) {
+        Logger.warning(
+          'Customer not found for invoice: ${invoice.id}',
+          tag: 'EXPORT',
+        );
+        continue;
+      }
       final items = await _invoiceRepo.getItems(invoice.id);
       final pdf = await PdfService.generateInvoicePdf(
         company: company,
@@ -67,18 +96,22 @@ class ExportService {
       final pdfBytes = await pdf.save();
       final pdfFile = File('${exportDir.path}/${invoice.number}.pdf');
       pdfFile.writeAsBytesSync(pdfBytes);
+      Logger.debug('Generated PDF: ${pdfFile.path}', tag: 'EXPORT');
     }
 
+    Logger.ui('ExportService', 'COPY_RECEIPTS');
     for (final expense in expenses) {
       if (expense.receiptUrl != null && expense.receiptUrl!.isNotEmpty) {
         final receiptFile = File(expense.receiptUrl!);
         if (receiptFile.existsSync()) {
           final destFile = File('${exportDir.path}/recu_${expense.id}.jpg');
           receiptFile.copySync(destFile.path);
+          Logger.debug('Copied receipt: ${destFile.path}', tag: 'EXPORT');
         }
       }
     }
 
+    Logger.success('Export complete: ${exportDir.path}', tag: 'EXPORT');
     return exportDir.path;
   }
 
@@ -181,15 +214,24 @@ class ExportService {
   }
 
   Future<void> shareExport(String directoryPath) async {
+    Logger.method('ExportService', 'shareExport', {'path': directoryPath});
     final dir = Directory(directoryPath);
-    if (!dir.existsSync()) return;
+    if (!dir.existsSync()) {
+      Logger.warning('Directory does not exist: $directoryPath', tag: 'EXPORT');
+      return;
+    }
 
     final files = dir.listSync().whereType<File>().toList();
-    if (files.isEmpty) return;
+    if (files.isEmpty) {
+      Logger.warning('No files to share', tag: 'EXPORT');
+      return;
+    }
 
+    Logger.debug('Sharing ${files.length} files', tag: 'EXPORT');
     await Share.shareXFiles(
       files.map((f) => XFile(f.path)).toList(),
       subject: 'Export Konta',
     );
+    Logger.success('Share completed', tag: 'EXPORT');
   }
 }

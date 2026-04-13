@@ -48,6 +48,7 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen>
 
   @override
   Widget build(BuildContext context) {
+    Logger.ui('InvoiceListScreen', 'BUILD', 'type: ${widget.type}');
     final invoicesAsync = ref.watch(invoicesByTypeProvider(widget.type));
     final title = widget.type == 'invoice' ? 'Factures' : 'Devis';
 
@@ -107,7 +108,14 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen>
               const SizedBox(width: 12),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.filter_list),
-                onSelected: (value) => setState(() => _selectedStatus = value),
+                onSelected: (value) {
+                  Logger.ui(
+                    'InvoiceListScreen',
+                    'FILTER_CHANGED',
+                    'status: $value',
+                  );
+                  setState(() => _selectedStatus = value);
+                },
                 itemBuilder: (context) => _statusFilters.map((status) {
                   return PopupMenuItem(
                     value: status,

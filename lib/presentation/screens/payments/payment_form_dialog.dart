@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:konta/core/utils/logger.dart';
 import 'package:konta/presentation/providers/payment_provider.dart';
 
 class PaymentFormDialog extends ConsumerStatefulWidget {
@@ -44,6 +45,7 @@ class _PaymentFormDialogState extends ConsumerState<PaymentFormDialog> {
 
   @override
   void dispose() {
+    Logger.ui('PaymentFormDialog', 'DISPOSE');
     _amountController.dispose();
     _notesController.dispose();
     super.dispose();
@@ -51,6 +53,7 @@ class _PaymentFormDialogState extends ConsumerState<PaymentFormDialog> {
 
   @override
   Widget build(BuildContext context) {
+    Logger.ui('PaymentFormDialog', 'BUILD');
     final currencyFormat = NumberFormat.currency(
       locale: 'fr_MA',
       symbol: 'MAD',
@@ -208,6 +211,11 @@ class _PaymentFormDialogState extends ConsumerState<PaymentFormDialog> {
   }
 
   Future<void> _savePayment() async {
+    Logger.ui(
+      'PaymentFormDialog',
+      'SAVE_PAYMENT',
+      'amount: ${_amountController.text}, method: $_selectedMethod',
+    );
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);

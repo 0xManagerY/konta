@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:konta/core/utils/logger.dart';
 import 'package:konta/data/local/database.dart';
 import 'package:konta/data/remote/storage_service.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
@@ -23,6 +24,7 @@ class ExpenseDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    Logger.ui('ExpenseDetailScreen', 'BUILD', 'expenseId: $expenseId');
     final expenseAsync = ref.watch(_expenseProvider(expenseId));
     final currencyFormat = NumberFormat.currency(
       locale: 'fr_MA',
@@ -229,6 +231,11 @@ class ExpenseDetailScreen extends ConsumerWidget {
     WidgetRef ref,
     Expense expense,
   ) async {
+    Logger.ui(
+      'ExpenseDetailScreen',
+      'DELETE_EXPENSE',
+      'expense: ${expense.id}',
+    );
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(

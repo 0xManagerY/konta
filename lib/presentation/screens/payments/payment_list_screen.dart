@@ -26,6 +26,7 @@ class _PaymentListScreenState extends ConsumerState<PaymentListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Logger.ui('PaymentListScreen', 'BUILD');
     final paymentsAsync = ref.watch(checkRemindersProvider);
     final overdueAsync = ref.watch(overdueChecksProvider);
 

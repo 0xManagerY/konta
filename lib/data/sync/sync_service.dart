@@ -382,9 +382,24 @@ class SyncService {
 
     if (existing == null || existing.syncStatus == 'synced') {
       Logger.db('UPSERT_LOCAL', 'profiles', {'id': data['id']});
-      await _db
-          .into(_db.profiles)
-          .insertOnConflictUpdate(Profile.fromJson(data));
+      final profile = Profile(
+        id: data['id'] as String,
+        email: data['email'] as String,
+        companyName: (data['company_name'] as String?) ?? '',
+        legalStatus: (data['legal_status'] as String?) ?? 'SARL',
+        ice: data['ice'] as String?,
+        ifNumber: data['if_number'] as String?,
+        rc: data['rc'] as String?,
+        cnss: data['cnss'] as String?,
+        address: data['address'] as String?,
+        phone: data['phone'] as String?,
+        logoUrl: data['logo_url'] as String?,
+        isAutoEntrepreneur: (data['is_auto_entrepreneur'] as bool?) ?? false,
+        createdAt: DateTime.parse(data['created_at'] as String),
+        updatedAt: DateTime.parse(data['updated_at'] as String),
+        syncStatus: 'synced',
+      );
+      await _db.into(_db.profiles).insertOnConflictUpdate(profile);
     } else {
       Logger.sync(
         'SKIP_CONFLICT',

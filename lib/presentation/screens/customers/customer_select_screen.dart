@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:konta/core/utils/logger.dart';
 import 'package:konta/presentation/providers/customer_provider.dart';
 
 class CustomerSelectScreen extends ConsumerStatefulWidget {
@@ -15,12 +16,14 @@ class _CustomerSelectScreenState extends ConsumerState<CustomerSelectScreen> {
 
   @override
   void dispose() {
+    Logger.ui('CustomerSelectScreen', 'DISPOSE');
     _searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    Logger.ui('CustomerSelectScreen', 'BUILD');
     final customersAsync = ref.watch(customersProvider);
 
     return Scaffold(
@@ -64,6 +67,11 @@ class _CustomerSelectScreenState extends ConsumerState<CustomerSelectScreen> {
                       subtitle: Text(customer.ice ?? 'Pas d\'ICE'),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
+                        Logger.ui(
+                          'CustomerSelectScreen',
+                          'CUSTOMER_SELECTED',
+                          'name: ${customer.name}',
+                        );
                         Navigator.pop(context, customer);
                       },
                     );

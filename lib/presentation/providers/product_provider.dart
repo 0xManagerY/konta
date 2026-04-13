@@ -5,18 +5,28 @@ import 'package:konta/data/repositories/product_repository.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 import 'package:konta/data/sync/sync_queue_helper.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
+import 'package:konta/core/utils/logger.dart';
 
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
+  Logger.method('Provider', 'productRepositoryProvider', {'init': true});
   final db = ref.watch(databaseProvider);
   final syncQueue = ref.watch(syncQueueHelperProvider);
   return ProductRepository(db, syncQueue);
 });
 
 final productsProvider = StreamProvider<List<Product>>((ref) {
+  Logger.method('Provider', 'productsProvider', {'watch': true});
   final db = ref.watch(databaseProvider);
   final userId = SupabaseService.currentUserId;
-  if (userId == null) return Stream.value([]);
+  if (userId == null) {
+    Logger.warning(
+      'No user ID, returning empty products stream',
+      tag: 'PRODUCT_PROVIDER',
+    );
+    return Stream.value([]);
+  }
 
+  Logger.debug('Watching products for user: $userId', tag: 'PRODUCT_PROVIDER');
   return (db.select(db.products)
         ..where((p) => p.userId.equals(userId))
         ..orderBy([(p) => OrderingTerm(expression: p.name)]))
@@ -24,6 +34,7 @@ final productsProvider = StreamProvider<List<Product>>((ref) {
 });
 
 final productByIdProvider = StreamProvider.family<Product?, String>((ref, id) {
+  Logger.method('Provider', 'productByIdProvider', {'id': id});
   final db = ref.watch(databaseProvider);
   return (db.select(
     db.products,

@@ -10,11 +10,13 @@ import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' hide Column, Table;
+import 'package:konta/core/utils/logger.dart';
 import 'package:konta/data/local/database.dart';
 import 'package:konta/domain/services/pdf_service.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
 import 'package:konta/presentation/providers/invoice_provider.dart';
 import 'package:konta/presentation/providers/customer_provider.dart';
+import 'package:konta/presentation/providers/payment_provider.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 
 final _invoiceProvider = StreamProvider.autoDispose.family<Invoice?, String>((
@@ -94,6 +96,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Logger.ui('InvoiceDetailScreen', 'BUILD', 'invoiceId: ${widget.invoiceId}');
     final invoiceAsync = ref.watch(_invoiceProvider(widget.invoiceId));
 
     return invoiceAsync.when(
@@ -1072,6 +1075,11 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
   }
 
   Future<void> _duplicateInvoice(Invoice invoice) async {
+    Logger.ui(
+      'InvoiceDetailScreen',
+      'DUPLICATE_INVOICE',
+      'invoice: ${invoice.number}',
+    );
     final invoiceRepo = ref.read(invoiceRepositoryProvider);
     final items = await invoiceRepo.getItems(invoice.id);
     final userId = SupabaseService.currentUserId;
@@ -1123,6 +1131,11 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
   }
 
   Future<void> _convertToInvoice(Invoice quote) async {
+    Logger.ui(
+      'InvoiceDetailScreen',
+      'CONVERT_TO_INVOICE',
+      'quote: ${quote.number}',
+    );
     if (quote.isConverted || quote.status == 'converted') {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1164,6 +1177,11 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
   }
 
   Future<void> _createAvoir(Invoice invoice) async {
+    Logger.ui(
+      'InvoiceDetailScreen',
+      'CREATE_AVOIR',
+      'invoice: ${invoice.number}',
+    );
     final reasonController = TextEditingController();
     final amountController = TextEditingController();
     amountController.text = invoice.total.toStringAsFixed(2);
@@ -1253,6 +1271,11 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
   }
 
   Future<void> _showPaymentDialog(Invoice invoice) async {
+    Logger.ui(
+      'InvoiceDetailScreen',
+      'SHOW_PAYMENT_DIALOG',
+      'invoice: ${invoice.number}',
+    );
     final paymentsAsync = ref.read(_paymentsProvider(invoice.id));
     final payments = paymentsAsync.valueOrNull ?? [];
     final totalPaid = payments.fold<double>(0, (sum, p) => sum + p.amount);
@@ -1307,25 +1330,19 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
       return;
     }
 
-    final db = ref.read(databaseProvider);
-    final paymentId = const Uuid().v4();
-
-    final payment = PaymentsCompanion(
-      id: Value(paymentId),
-      invoiceId: Value(invoice.id),
-      amount: Value(amount),
-      method: Value(confirmed.method),
-      paymentDate: Value(DateTime.now()),
-      checkDueDate: Value(checkDueDate),
-      syncStatus: const Value('pending'),
-      createdAt: Value(DateTime.now()),
+    final paymentRepo = ref.read(paymentRepositoryProvider);
+    await paymentRepo.create(
+      invoiceId: invoice.id,
+      amount: amount,
+      method: confirmed.method,
+      paymentDate: DateTime.now(),
+      checkDueDate: checkDueDate,
     );
-
-    await db.into(db.payments).insert(payment);
 
     final newStatus = amount >= invoice.total - 0.01
         ? 'paid'
         : 'partially_paid';
+    final db = ref.read(databaseProvider);
     await (db.update(db.invoices)..where((i) => i.id.equals(invoice.id))).write(
       InvoicesCompanion(
         status: Value(newStatus),
@@ -1345,6 +1362,11 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
   }
 
   Future<void> _deleteInvoice(Invoice invoice) async {
+    Logger.ui(
+      'InvoiceDetailScreen',
+      'DELETE_INVOICE',
+      'invoice: ${invoice.number}',
+    );
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(

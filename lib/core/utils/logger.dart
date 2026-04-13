@@ -25,8 +25,10 @@ class Logger {
       stackTrace: stackTrace,
     );
 
+    print(fullMessage);
+
     if (error != null) {
-      developer.log('$fullMessage - Error: $error', level: 900);
+      print('$fullMessage - Error: $error');
     }
   }
 

@@ -1,6 +1,7 @@
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as html_dom;
 import 'package:http/http.dart' as http;
+import 'package:konta/core/utils/logger.dart';
 
 class CompanyInfo {
   final String name;
@@ -53,10 +54,12 @@ class CompanySearchService {
   }
 
   Future<List<CompanyInfo>> search(String query) async {
+    Logger.method('CompanySearchService', 'search', {'query': query});
     final url = Uri.parse(
       '$_baseUrl/recherche?q=${Uri.encodeComponent(query)}&type=&rs=&cp=1&cp_max=2035272260000&et=&v=',
     );
 
+    Logger.network('GET', url.toString());
     final response = await http.get(
       url,
       headers: {
@@ -66,10 +69,20 @@ class CompanySearchService {
     );
 
     if (response.statusCode != 200) {
+      Logger.error(
+        'SEARCH_FAILED',
+        tag: 'COMPANY_SEARCH',
+        error: 'Status: ${response.statusCode}',
+      );
       throw Exception('Failed to search: ${response.statusCode}');
     }
 
-    return _parseSearchResults(response.body);
+    final results = _parseSearchResults(response.body);
+    Logger.success(
+      'Found ${results.length} results for query: $query',
+      tag: 'COMPANY_SEARCH',
+    );
+    return results;
   }
 
   List<CompanyInfo> _parseSearchResults(String html) {
@@ -133,8 +146,18 @@ class CompanySearchService {
   }
 
   Future<CompanyInfo?> getDetails(CompanyInfo basicInfo) async {
-    if (basicInfo.detailsUrl == null) return null;
+    Logger.method('CompanySearchService', 'getDetails', {
+      'name': basicInfo.name,
+    });
+    if (basicInfo.detailsUrl == null) {
+      Logger.warning(
+        'No details URL for: ${basicInfo.name}',
+        tag: 'COMPANY_SEARCH',
+      );
+      return null;
+    }
 
+    Logger.network('GET', basicInfo.detailsUrl!);
     final response = await http.get(
       Uri.parse(basicInfo.detailsUrl!),
       headers: {
@@ -144,10 +167,21 @@ class CompanySearchService {
     );
 
     if (response.statusCode != 200) {
+      Logger.warning(
+        'Failed to fetch details: ${response.statusCode}',
+        tag: 'COMPANY_SEARCH',
+      );
       return null;
     }
 
-    return _parseDetails(response.body, basicInfo);
+    final details = _parseDetails(response.body, basicInfo);
+    if (details != null) {
+      Logger.success(
+        'Details parsed for: ${details.name}',
+        tag: 'COMPANY_SEARCH',
+      );
+    }
+    return details;
   }
 
   CompanyInfo? _parseDetails(String html, CompanyInfo basicInfo) {

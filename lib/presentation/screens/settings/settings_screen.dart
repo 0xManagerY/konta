@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:konta/core/utils/logger.dart';
 import 'package:konta/presentation/providers/settings_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -16,6 +17,7 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    Logger.ui('SettingsScreen', 'BUILD');
     final settings = ref.watch(settingsProvider);
 
     return Scaffold(
@@ -60,6 +62,11 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   value: settings.autoSyncEnabled,
                   onChanged: (value) {
+                    Logger.ui(
+                      'SettingsScreen',
+                      'AUTO_SYNC_CHANGED',
+                      'value: $value',
+                    );
                     ref.read(settingsProvider.notifier).setAutoSync(value);
                   },
                 ),
@@ -202,6 +209,7 @@ class SettingsScreen extends ConsumerWidget {
     WidgetRef ref,
     AppSettings settings,
   ) {
+    Logger.ui('SettingsScreen', 'SHOW_LANGUAGE_DIALOG');
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -238,6 +246,7 @@ class SettingsScreen extends ConsumerWidget {
     WidgetRef ref,
     AppSettings settings,
   ) {
+    Logger.ui('SettingsScreen', 'SHOW_THEME_DIALOG');
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -250,6 +259,7 @@ class SettingsScreen extends ConsumerWidget {
               value: ThemeMode.light,
               groupValue: settings.themeMode,
               onChanged: (value) {
+                Logger.ui('SettingsScreen', 'THEME_CHANGED', 'theme: light');
                 ref.read(settingsProvider.notifier).setThemeMode(value!);
                 Navigator.pop(context);
               },
@@ -259,6 +269,7 @@ class SettingsScreen extends ConsumerWidget {
               value: ThemeMode.dark,
               groupValue: settings.themeMode,
               onChanged: (value) {
+                Logger.ui('SettingsScreen', 'THEME_CHANGED', 'theme: dark');
                 ref.read(settingsProvider.notifier).setThemeMode(value!);
                 Navigator.pop(context);
               },
@@ -268,6 +279,7 @@ class SettingsScreen extends ConsumerWidget {
               value: ThemeMode.system,
               groupValue: settings.themeMode,
               onChanged: (value) {
+                Logger.ui('SettingsScreen', 'THEME_CHANGED', 'theme: system');
                 ref.read(settingsProvider.notifier).setThemeMode(value!);
                 Navigator.pop(context);
               },
@@ -341,6 +353,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   void _showResetDialog(BuildContext context, WidgetRef ref) {
+    Logger.ui('SettingsScreen', 'SHOW_RESET_DIALOG');
     showDialog(
       context: context,
       builder: (context) => AlertDialog(

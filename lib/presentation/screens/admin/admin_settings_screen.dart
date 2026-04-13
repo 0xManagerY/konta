@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' hide Column, Table;
 import 'package:uuid/uuid.dart';
+import 'package:konta/core/utils/logger.dart';
 import 'package:konta/data/local/database.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
 
@@ -18,6 +19,7 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
 
   @override
   void dispose() {
+    Logger.ui('AdminSettingsScreen', 'DISPOSE');
     for (final controller in _controllers.values) {
       controller.dispose();
     }
@@ -26,6 +28,7 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Logger.ui('AdminSettingsScreen', 'BUILD');
     final db = ref.watch(databaseProvider);
     final settingsAsync = ref.watch(
       StreamProvider<List<AdminSetting>>((ref) {
@@ -87,6 +90,7 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
   }
 
   Future<void> _addSettingDialog() async {
+    Logger.ui('AdminSettingsScreen', 'ADD_SETTING_DIALOG');
     final keyController = TextEditingController();
     final valueController = TextEditingController();
 
@@ -115,6 +119,11 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
           ElevatedButton(
             onPressed: () async {
               if (keyController.text.isNotEmpty) {
+                Logger.ui(
+                  'AdminSettingsScreen',
+                  'ADD_SETTING',
+                  'key: ${keyController.text}',
+                );
                 final db = ref.read(databaseProvider);
                 await db
                     .into(db.adminSettings)
@@ -137,6 +146,11 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
   }
 
   Future<void> _editSettingDialog(AdminSetting setting) async {
+    Logger.ui(
+      'AdminSettingsScreen',
+      'EDIT_SETTING_DIALOG',
+      'key: ${setting.key}',
+    );
     final valueController = TextEditingController(text: setting.value);
 
     await showDialog(
@@ -154,6 +168,11 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
+              Logger.ui(
+                'AdminSettingsScreen',
+                'UPDATE_SETTING',
+                'key: ${setting.key}',
+              );
               final db = ref.read(databaseProvider);
               await (db.update(
                 db.adminSettings,
@@ -173,6 +192,7 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
   }
 
   Future<void> _deleteSetting(AdminSetting setting) async {
+    Logger.ui('AdminSettingsScreen', 'DELETE_SETTING', 'key: ${setting.key}');
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(

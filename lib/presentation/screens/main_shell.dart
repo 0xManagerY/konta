@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:konta/core/utils/logger.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 import 'package:konta/presentation/providers/sync_provider.dart';
 import 'package:konta/presentation/providers/settings_provider.dart';
@@ -21,6 +22,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   void initState() {
     super.initState();
+    Logger.ui('MainShell', 'INIT_STATE');
     Future.microtask(() {
       final autoSyncEnabled = ref.read(settingsProvider).autoSyncEnabled;
       if (autoSyncEnabled) {
@@ -32,6 +34,7 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   void dispose() {
+    Logger.ui('MainShell', 'DISPOSE');
     ref.read(syncControllerProvider).dispose();
     super.dispose();
   }
@@ -75,6 +78,7 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    Logger.ui('MainShell', 'BUILD');
     final isSyncing = ref.watch(isSyncingProvider);
 
     return Scaffold(
@@ -104,6 +108,7 @@ class _MainShellState extends ConsumerState<MainShell> {
               leading: const Icon(Icons.people),
               title: const Text('Clients'),
               onTap: () {
+                Logger.ui('MainShell', 'NAVIGATE', '/customers');
                 Navigator.pop(context);
                 context.push('/customers');
               },
@@ -112,6 +117,7 @@ class _MainShellState extends ConsumerState<MainShell> {
               leading: const Icon(Icons.payment),
               title: const Text('Paiements'),
               onTap: () {
+                Logger.ui('MainShell', 'NAVIGATE', '/payments');
                 Navigator.pop(context);
                 context.push('/payments');
               },
@@ -120,6 +126,7 @@ class _MainShellState extends ConsumerState<MainShell> {
               leading: const Icon(Icons.inventory_2),
               title: const Text('Produits'),
               onTap: () {
+                Logger.ui('MainShell', 'NAVIGATE', '/products');
                 Navigator.pop(context);
                 context.push('/products');
               },
@@ -129,6 +136,7 @@ class _MainShellState extends ConsumerState<MainShell> {
               leading: const Icon(Icons.person),
               title: const Text('Profil'),
               onTap: () {
+                Logger.ui('MainShell', 'NAVIGATE', '/profile');
                 Navigator.pop(context);
                 context.push('/profile');
               },
@@ -137,6 +145,7 @@ class _MainShellState extends ConsumerState<MainShell> {
               leading: const Icon(Icons.settings),
               title: const Text('Paramètres'),
               onTap: () {
+                Logger.ui('MainShell', 'NAVIGATE', '/settings');
                 Navigator.pop(context);
                 context.push('/settings');
               },
@@ -146,6 +155,7 @@ class _MainShellState extends ConsumerState<MainShell> {
               leading: const Icon(Icons.file_download),
               title: const Text('Export mensuel'),
               onTap: () {
+                Logger.ui('MainShell', 'NAVIGATE', '/export');
                 Navigator.pop(context);
                 context.push('/export');
               },
@@ -155,6 +165,7 @@ class _MainShellState extends ConsumerState<MainShell> {
               leading: const Icon(Icons.logout),
               title: const Text('Déconnexion'),
               onTap: () {
+                Logger.ui('MainShell', 'LOGOUT');
                 Navigator.pop(context);
                 SupabaseService.signOut();
               },
@@ -166,6 +177,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
+          Logger.ui('MainShell', 'NAVIGATION_BAR_TAP', 'index: $index');
           setState(() => _currentIndex = index);
           switch (index) {
             case 0:
