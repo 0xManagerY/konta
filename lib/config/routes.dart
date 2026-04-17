@@ -21,6 +21,11 @@ import 'package:konta/presentation/screens/export/export_screen.dart';
 import 'package:konta/presentation/screens/admin/admin_dashboard_screen.dart';
 import 'package:konta/presentation/screens/profile/profile_screen.dart';
 import 'package:konta/presentation/screens/settings/settings_screen.dart';
+import 'package:konta/presentation/screens/settings/templates_screen.dart';
+import 'package:konta/presentation/screens/team/team_members_screen.dart';
+import 'package:konta/presentation/screens/team/invite_member_screen.dart';
+import 'package:konta/presentation/screens/team/permissions_screen.dart';
+import 'package:konta/presentation/screens/onboarding/join_company_screen.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 import 'package:konta/presentation/providers/auth_provider.dart';
 
@@ -46,21 +51,23 @@ final router = GoRouter(
     }
 
     if (isAuthenticated && !isOnboarding) {
+      if (!context.mounted) return null;
       final container = ProviderScope.containerOf(context);
       final needsOnboarding = await container.read(
         needsOnboardingProvider.future,
       );
-      if (needsOnboarding && context.mounted) {
+      if (needsOnboarding) {
         return '/onboarding';
       }
     }
 
     if (isAuthenticated && isOnboarding) {
+      if (!context.mounted) return null;
       final container = ProviderScope.containerOf(context);
       final needsOnboarding = await container.read(
         needsOnboardingProvider.future,
       );
-      if (!needsOnboarding && context.mounted) {
+      if (!needsOnboarding) {
         return '/';
       }
     }
@@ -89,6 +96,10 @@ final router = GoRouter(
     GoRoute(
       path: '/onboarding',
       builder: (context, state) => const OnboardingScreen(),
+    ),
+    GoRoute(
+      path: '/onboarding/join',
+      builder: (context, state) => const JoinCompanyScreen(),
     ),
     GoRoute(
       path: '/auth/login',
@@ -220,6 +231,22 @@ final router = GoRouter(
     GoRoute(
       path: '/settings',
       builder: (context, state) => const SettingsScreen(),
+    ),
+    GoRoute(
+      path: '/settings/templates',
+      builder: (context, state) => const TemplatesScreen(),
+    ),
+    GoRoute(
+      path: '/team/members',
+      builder: (context, state) => const TeamMembersScreen(),
+    ),
+    GoRoute(
+      path: '/team/invite',
+      builder: (context, state) => const InviteMemberScreen(),
+    ),
+    GoRoute(
+      path: '/team/permissions',
+      builder: (context, state) => const PermissionsScreen(),
     ),
     GoRoute(
       path: '/admin',

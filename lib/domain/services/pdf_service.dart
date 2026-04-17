@@ -1,24 +1,41 @@
+import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:konta/data/local/database.dart';
 import 'package:num2text/num2text.dart';
-import 'package:konta/core/utils/logger.dart';
+import 'package:konta/data/local/database.dart';
+import 'package:konta/data/local/tables/tables.dart';
+import 'package:konta/domain/services/log_service.dart';
 
 class PdfService {
   static final _num2text = Num2Text();
+  static final LogService _log = LogService();
+
+  static PdfColor _hexToColor(String hex) {
+    final hexCode = hex.replaceAll('#', '');
+    return PdfColor.fromInt(int.parse('FF$hexCode', radix: 16));
+  }
 
   static Future<pw.Document> generateInvoicePdf({
-    required Profile company,
-    required Customer customer,
-    required Invoice invoice,
-    required List<InvoiceItem> items,
+    required Company company,
+    required String userEmail,
+    required Contact customer,
+    required Document invoice,
+    required List<DocumentLine> items,
     required String languageCode,
+    InvoiceTemplate? template,
+    Uint8List? logoBytes,
   }) async {
-    Logger.debug('Generating PDF for invoice: ${invoice.number}', tag: 'PDF');
-    Logger.debug('Company: ${company.companyName}', tag: 'PDF');
-    Logger.debug('Customer: ${customer.name}', tag: 'PDF');
-    Logger.debug('Items count: ${items.length}', tag: 'PDF');
-    Logger.debug('Total: ${invoice.total}', tag: 'PDF');
+    _log.debug(
+      LogTags.service,
+      'generateInvoicePdf - starting',
+      data: {
+        'invoiceNumber': invoice.number,
+        'company': company.name,
+        'customer': customer.name,
+        'itemsCount': items.length,
+        'total': invoice.total,
+      },
+    );
 
     final pdf = pw.Document();
 
@@ -51,38 +68,69 @@ class PdfService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(40),
         build: (pw.Context context) {
+          final primaryColor = template != null
+              ? _hexToColor(template.primaryColor)
+              : PdfColor.fromInt(0xFF2563EB);
+
+          final logoWidget = logoBytes != null
+              ? pw.Image(pw.MemoryImage(logoBytes), width: 80)
+              : null;
+
+          final headerContent = <pw.Widget>[
+            if (template?.headerStyle == HeaderStyle.logoCenter &&
+                logoBytes != null)
+              pw.Center(child: pw.Image(pw.MemoryImage(logoBytes), width: 100)),
+            if (template?.headerStyle == HeaderStyle.logoCenter &&
+                logoBytes != null)
+              pw.SizedBox(height: 10),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    if (template?.headerStyle == HeaderStyle.logoLeft &&
+                        logoBytes != null)
+                      logoWidget!,
+                    pw.Text(
+                      company.name,
+                      style: pw.TextStyle(
+                        fontSize: 18,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.SizedBox(height: 8),
+                    pw.Text(company.address ?? ''),
+                    pw.Text('Tél: ${company.phone ?? ''}'),
+                    pw.Text('Email: $userEmail'),
+                  ],
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    pw.Text('ICE: ${company.ice ?? ''}'),
+                    pw.Text('IF: ${company.ifNumber ?? ''}'),
+                    pw.Text('RC: ${company.rc ?? ''}'),
+                    pw.Text('CNSS: ${company.cnss ?? ''}'),
+                    if (template?.headerStyle == HeaderStyle.logoRight &&
+                        logoBytes != null)
+                      pw.SizedBox(height: 30),
+                    if (template?.headerStyle == HeaderStyle.logoRight &&
+                        logoBytes != null)
+                      logoWidget!,
+                  ],
+                ),
+              ],
+            ),
+          ];
+
           return [
             pw.Header(
               level: 0,
-              child: pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        company.companyName,
-                        style: pw.TextStyle(
-                          fontSize: 18,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                      pw.SizedBox(height: 8),
-                      pw.Text(company.address ?? ''),
-                      pw.Text('Tél: ${company.phone ?? ''}'),
-                      pw.Text('Email: ${company.email}'),
-                    ],
-                  ),
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                      pw.Text('ICE: ${company.ice ?? ''}'),
-                      pw.Text('IF: ${company.ifNumber ?? ''}'),
-                      pw.Text('RC: ${company.rc ?? ''}'),
-                      pw.Text('CNSS: ${company.cnss ?? ''}'),
-                    ],
-                  ),
-                ],
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: headerContent,
               ),
             ),
             pw.SizedBox(height: 30),
@@ -99,24 +147,29 @@ class PdfService {
                     pw.SizedBox(height: 4),
                     pw.Text(customer.name),
                     if (customer.address != null) pw.Text(customer.address!),
-                    if (customer.ice != null) pw.Text('ICE: ${customer.ice}'),
+                    if (customer.ice != null &&
+                        (template?.showCustomerIce ?? true))
+                      pw.Text('ICE: ${customer.ice}'),
                   ],
                 ),
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.end,
                   children: [
                     pw.Text(
-                      invoice.type == 'invoice' ? 'FACTURE' : 'DEVIS',
+                      invoice.type == DocumentType.invoice
+                          ? 'FACTURE'
+                          : 'DEVIS',
                       style: pw.TextStyle(
                         fontSize: 20,
                         fontWeight: pw.FontWeight.bold,
-                        color: PdfColor.fromInt(0xFF2563EB),
+                        color: primaryColor,
                       ),
                     ),
                     pw.SizedBox(height: 8),
                     pw.Text('N°: ${invoice.number}'),
                     pw.Text('Date: ${_formatDate(invoice.issueDate)}'),
-                    if (invoice.dueDate != null)
+                    if (invoice.dueDate != null &&
+                        (template?.showPaymentTerms ?? true))
                       pw.Text('Échéance: ${_formatDate(invoice.dueDate!)}'),
                   ],
                 ),
@@ -134,9 +187,7 @@ class PdfService {
               },
               children: [
                 pw.TableRow(
-                  decoration: const pw.BoxDecoration(
-                    color: PdfColor.fromInt(0xFF2563EB),
-                  ),
+                  decoration: pw.BoxDecoration(color: primaryColor),
                   children: [
                     _buildTableCell('Description', isHeader: true),
                     _buildTableCell('Qté', isHeader: true),
@@ -230,6 +281,15 @@ class PdfService {
                 ],
               ),
             ),
+            if (template?.footerText != null &&
+                template!.footerText!.isNotEmpty) ...[
+              pw.SizedBox(height: 20),
+              pw.Text(
+                template.footerText!,
+                style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
+                textAlign: pw.TextAlign.center,
+              ),
+            ],
             if (company.isAutoEntrepreneur) ...[
               pw.SizedBox(height: 20),
               pw.Container(
@@ -250,7 +310,7 @@ class PdfService {
       ),
     );
 
-    Logger.success('PDF generated successfully', tag: 'PDF');
+    _log.info(LogTags.service, 'generateInvoicePdf - completed');
     return pdf;
   }
 

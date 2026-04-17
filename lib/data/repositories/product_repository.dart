@@ -4,47 +4,48 @@ import 'package:konta/data/local/database.dart';
 import 'package:konta/core/utils/logger.dart';
 import 'package:konta/data/sync/sync_queue_helper.dart';
 
-class ProductRepository {
+class ItemRepository {
   final AppDatabase _db;
   final SyncQueueHelper _syncQueue;
 
-  ProductRepository(this._db, this._syncQueue);
+  ItemRepository(this._db, this._syncQueue);
 
-  Future<List<Product>> getAll(String userId) async {
-    Logger.method('ProductRepository', 'getAll', {'userId': userId});
-    return (_db.select(_db.products)
-          ..where((p) => p.userId.equals(userId))
+  Future<List<Item>> getAll(String companyId) async {
+    Logger.method('ProductRepository', 'getAll', {'companyId': companyId});
+    return (_db.select(_db.items)
+          ..where((p) => p.companyId.equals(companyId))
           ..orderBy([(p) => OrderingTerm(expression: p.name)]))
         .get();
   }
 
-  Future<Product?> getById(String id) async {
+  Future<Item?> getById(String id) async {
     Logger.method('ProductRepository', 'getById', {'id': id});
     return (_db.select(
-      _db.products,
+      _db.items,
     )..where((p) => p.id.equals(id))).getSingleOrNull();
   }
 
-  Future<List<Product>> search(String userId, String query) async {
+  Future<List<Item>> search(String companyId, String query) async {
     Logger.method('ProductRepository', 'search', {
-      'userId': userId,
+      'companyId': companyId,
       'query': query,
     });
     final lowerQuery = query.toLowerCase();
-    return (_db.select(_db.products)
+    return (_db.select(_db.items)
           ..where(
             (p) =>
-                p.userId.equals(userId) & p.name.lower().contains(lowerQuery),
+                p.companyId.equals(companyId) &
+                p.name.lower().contains(lowerQuery),
           )
           ..orderBy([(p) => OrderingTerm(expression: p.name)]))
         .get();
   }
 
-  Future<String> insert(ProductsCompanion product) async {
+  Future<String> insert(ItemsCompanion product) async {
     Logger.method('ProductRepository', 'insert', {'name': product.name.value});
     final id = const Uuid().v4();
     await _db
-        .into(_db.products)
+        .into(_db.items)
         .insert(
           product.copyWith(
             id: Value(id),
@@ -58,9 +59,9 @@ class ProductRepository {
     return id;
   }
 
-  Future<void> update(Product product) async {
+  Future<void> update(Item product) async {
     Logger.method('ProductRepository', 'update', {'id': product.id});
-    await (_db.update(_db.products)).replace(
+    await (_db.update(_db.items)).replace(
       product.copyWith(updatedAt: DateTime.now(), syncStatus: 'pending'),
     );
     await _syncQueue.queueUpdate('products', product.id);
@@ -70,7 +71,7 @@ class ProductRepository {
   Future<void> delete(String id) async {
     Logger.method('ProductRepository', 'delete', {'id': id});
     await _syncQueue.queueDelete('products', id);
-    await (_db.delete(_db.products)..where((p) => p.id.equals(id))).go();
+    await (_db.delete(_db.items)..where((p) => p.id.equals(id))).go();
     Logger.success('Product deleted', tag: 'REPO');
   }
 
@@ -79,8 +80,8 @@ class ProductRepository {
       'productId': productId,
     });
     final count =
-        await (_db.select(_db.invoiceItems)
-              ..where((i) => i.productId.equals(productId)))
+        await (_db.select(_db.documentLines)
+              ..where((i) => i.itemId.equals(productId)))
             .get()
             .then((list) => list.length);
     return count > 0;

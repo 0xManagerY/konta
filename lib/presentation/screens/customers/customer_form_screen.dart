@@ -35,7 +35,7 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
 
   bool _isLoading = false;
   bool _isSearching = false;
-  Customer? _existingCustomer;
+  Contact? _existingCustomer;
   final _searchService = CompanySearchService();
 
   @override
@@ -225,11 +225,11 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
 
       final now = DateTime.now();
       final customerId = _existingCustomer?.id ?? await repo.generateId();
-
-      final customer = Customer(
+      final customer = Contact(
         id: customerId,
-        userId: userId,
+        companyId: userId,
         name: _nameController.text.trim(),
+        contactType: 'customer',
         ice: _iceController.text.trim().isEmpty
             ? null
             : _iceController.text.trim(),
@@ -251,7 +251,6 @@ class _CustomerFormScreenState extends ConsumerState<CustomerFormScreen> {
         capital: _capitalController.text.trim().isEmpty
             ? null
             : _capitalController.text.trim(),
-        status: _existingCustomer?.status,
         address: _addressController.text.trim().isEmpty
             ? null
             : _addressController.text.trim(),

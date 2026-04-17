@@ -1,18 +1,20 @@
-import 'package:konta/core/utils/logger.dart';
-import 'package:konta/data/local/database.dart';
+import 'package:konta/domain/services/log_service.dart';
 import 'package:konta/data/sync/sync_service.dart';
-import 'package:konta/presentation/providers/database_provider.dart';
 import 'package:konta/presentation/providers/sync_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SyncQueueHelper {
-  final AppDatabase _db;
   final SyncService _syncService;
+  final LogService _log = LogService();
 
-  SyncQueueHelper(this._db, this._syncService);
+  SyncQueueHelper(this._syncService);
 
   Future<void> queueInsert(String table, String recordId) async {
-    Logger.sync('QUEUE_INSERT', '$table/$recordId');
+    _log.debug(
+      LogTags.sync,
+      'queueInsert - queuing insert',
+      data: {'table': table, 'id': recordId},
+    );
     await _syncService.queueOperation(
       table: table,
       operation: 'insert',
@@ -21,7 +23,11 @@ class SyncQueueHelper {
   }
 
   Future<void> queueUpdate(String table, String recordId) async {
-    Logger.sync('QUEUE_UPDATE', '$table/$recordId');
+    _log.debug(
+      LogTags.sync,
+      'queueUpdate - queuing update',
+      data: {'table': table, 'id': recordId},
+    );
     await _syncService.queueOperation(
       table: table,
       operation: 'update',
@@ -30,7 +36,11 @@ class SyncQueueHelper {
   }
 
   Future<void> queueDelete(String table, String recordId) async {
-    Logger.sync('QUEUE_DELETE', '$table/$recordId');
+    _log.debug(
+      LogTags.sync,
+      'queueDelete - queuing delete',
+      data: {'table': table, 'id': recordId},
+    );
     await _syncService.queueOperation(
       table: table,
       operation: 'delete',
@@ -40,7 +50,6 @@ class SyncQueueHelper {
 }
 
 final syncQueueHelperProvider = Provider<SyncQueueHelper>((ref) {
-  final db = ref.watch(databaseProvider);
   final syncService = ref.watch(syncServiceProvider);
-  return SyncQueueHelper(db, syncService);
+  return SyncQueueHelper(syncService);
 });

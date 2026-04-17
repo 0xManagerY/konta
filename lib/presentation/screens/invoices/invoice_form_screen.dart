@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:konta/data/local/database.dart';
+import 'package:konta/data/local/tables/tables.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
 import 'package:konta/presentation/providers/invoice_provider.dart';
 import 'package:konta/presentation/providers/product_provider.dart';
@@ -22,20 +23,20 @@ class InvoiceFormScreen extends ConsumerStatefulWidget {
 
 class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  Customer? _selectedCustomer;
+  Contact? _selectedCustomer;
   DateTime _issueDate = DateTime.now();
   DateTime? _dueDate;
   String _status = 'draft';
   final _notesController = TextEditingController();
 
-  List<InvoiceItem> _items = [];
-  List<Product> _products = [];
+  List<DocumentLine> _items = [];
+  List<Item> _products = [];
   double _subtotal = 0;
   double _tvaAmount = 0;
   double _total = 0;
 
   bool _isLoading = false;
-  Invoice? _existingInvoice;
+  Document? _existingInvoice;
 
   final _descriptionControllers = <int, TextEditingController>{};
 
@@ -63,18 +64,18 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
     Logger.ui('InvoiceFormScreen', 'LOAD_INVOICE', widget.invoiceId!);
     final db = ref.read(databaseProvider);
     final invoice = await (db.select(
-      db.invoices,
+      db.documents,
     )..where((i) => i.id.equals(widget.invoiceId!))).getSingleOrNull();
 
     if (invoice != null && mounted) {
       final items = await (db.select(
-        db.invoiceItems,
-      )..where((i) => i.invoiceId.equals(invoice.id))).get();
+        db.documentLines,
+      )..where((i) => i.documentId.equals(invoice.id))).get();
 
-      if (invoice.customerId.isNotEmpty) {
+      if (invoice.contactId.isNotEmpty) {
         final customer = await (db.select(
-          db.customers,
-        )..where((c) => c.id.equals(invoice.customerId))).getSingleOrNull();
+          db.contacts,
+        )..where((c) => c.id.equals(invoice.contactId))).getSingleOrNull();
         if (customer != null && mounted) {
           setState(() => _selectedCustomer = customer);
         }
@@ -83,7 +84,7 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
       Logger.ui('InvoiceFormScreen', 'INVOICE_LOADED', invoice.number);
       setState(() {
         _existingInvoice = invoice;
-        _status = invoice.status;
+        _status = invoice.status.name;
         _issueDate = invoice.issueDate;
         _dueDate = invoice.dueDate;
         _notesController.text = invoice.notes ?? '';
@@ -108,16 +109,17 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
     Logger.ui('InvoiceFormScreen', 'ADD_ITEM');
     setState(() {
       _items.add(
-        InvoiceItem(
+        DocumentLine(
           id: const Uuid().v4(),
-          invoiceId: widget.invoiceId ?? '',
-          productId: null,
-          productName: null,
+          documentId: widget.invoiceId ?? '',
+          itemId: null,
           description: '',
           quantity: 1,
           unitPrice: 0,
           tvaRate: 20,
           total: 0,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
           syncStatus: 'pending',
         ),
       );
@@ -134,7 +136,7 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
     });
   }
 
-  void _updateItem(int index, InvoiceItem item) {
+  void _updateItem(int index, DocumentLine item) {
     setState(() {
       _items[index] = item;
       _calculateTotals();
@@ -194,54 +196,53 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
       final invoiceRepo = ref.read(invoiceRepositoryProvider);
       final productRepo = ref.read(productRepositoryProvider);
       final invoiceId = _existingInvoice?.id ?? const Uuid().v4();
+      final invoiceType = widget.type == 'invoice'
+          ? DocumentType.invoice
+          : widget.type == 'devis'
+          ? DocumentType.quote
+          : DocumentType.creditNote;
       final number =
           _existingInvoice?.number ??
-          await invoiceRepo.generateNumber(userId, widget.type);
+          await invoiceRepo.generateNumber(userId, invoiceType);
 
       final now = DateTime.now();
 
       for (int i = 0; i < _items.length; i++) {
         final item = _items[i];
-        if (item.productId == null &&
-            item.productName != null &&
-            item.productName!.isNotEmpty) {
+        if (item.itemId == null && item.description.isNotEmpty) {
           final existing = _products
               .where(
-                (p) => p.name.toLowerCase() == item.productName!.toLowerCase(),
+                (p) => p.name.toLowerCase() == item.description.toLowerCase(),
               )
               .firstOrNull;
 
           if (existing != null) {
-            _items[i] = item.copyWith(
-              productId: Value(existing.id),
-              description: item.description.isEmpty
-                  ? (existing.description ?? existing.name)
-                  : item.description,
-            );
+            _items[i] = item.copyWith(itemId: Value(existing.id));
           } else {
-            final newProduct = ProductsCompanion(
-              userId: Value(userId),
-              name: Value(item.productName!),
-              description: Value(
-                item.description.isEmpty ? null : item.description,
-              ),
+            final newProduct = ItemsCompanion(
+              companyId: Value(userId),
+              name: Value(item.description),
+              defaultUnitPrice: Value(item.unitPrice),
+              isActive: const Value(true),
               createdAt: Value(now),
               updatedAt: Value(now),
               syncStatus: const Value('pending'),
             );
             final newId = await productRepo.insert(newProduct);
-            _items[i] = item.copyWith(productId: Value(newId));
+            _items[i] = item.copyWith(itemId: Value(newId));
           }
         }
       }
 
-      final invoice = Invoice(
+      final invoiceStatus = DocumentStatus.values.byName(_status);
+
+      final invoice = Document(
         id: invoiceId,
-        userId: userId,
-        customerId: _selectedCustomer!.id,
-        type: widget.type,
+        companyId: userId,
+        contactId: _selectedCustomer!.id,
+        type: invoiceType,
         number: number,
-        status: _status,
+        status: invoiceStatus,
         issueDate: _issueDate,
         dueDate: _dueDate,
         subtotal: _subtotal,
@@ -256,18 +257,19 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
         syncStatus: 'pending',
       );
 
-      final itemsWithInvoiceId = _items
+      final itemsWithDocumentId = _items
           .map(
-            (item) => InvoiceItem(
+            (item) => DocumentLine(
               id: item.id,
-              invoiceId: invoiceId,
-              productId: item.productId,
-              productName: item.productName,
+              documentId: invoiceId,
+              itemId: item.itemId,
               description: item.description,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
               tvaRate: item.tvaRate,
               total: item.quantity * item.unitPrice,
+              createdAt: now,
+              updatedAt: now,
               syncStatus: 'pending',
             ),
           )
@@ -275,11 +277,11 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
 
       if (_existingInvoice == null) {
         Logger.ui('InvoiceFormScreen', 'INSERT_INVOICE', invoiceId);
-        await invoiceRepo.insertWithItems(invoice, itemsWithInvoiceId);
+        await invoiceRepo.insertWithItems(invoice, itemsWithDocumentId);
       } else {
         Logger.ui('InvoiceFormScreen', 'UPDATE_INVOICE', invoiceId);
         await invoiceRepo.update(invoice);
-        await invoiceRepo.updateItems(invoiceId, itemsWithInvoiceId);
+        await invoiceRepo.updateItems(invoiceId, itemsWithDocumentId);
       }
 
       Logger.ui('InvoiceFormScreen', 'SAVE_SUCCESS');
@@ -375,7 +377,7 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
   Widget _buildCustomerSelector() {
     return InkWell(
       onTap: () async {
-        final customer = await context.push('/customers/select') as Customer?;
+        final customer = await context.push('/customers/select') as Contact?;
         if (customer != null) {
           setState(() => _selectedCustomer = customer);
         }
@@ -480,7 +482,7 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
     );
   }
 
-  Widget _buildItemCard(int index, InvoiceItem item) {
+  Widget _buildItemCard(int index, DocumentLine item) {
     _descriptionControllers[index] ??= TextEditingController(
       text: item.description,
     );
@@ -500,7 +502,9 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
         child: Column(
           children: [
             Autocomplete<String>(
-              initialValue: TextEditingValue(text: item.productName ?? ''),
+              initialValue: TextEditingValue(
+                text: item.itemId != null ? item.description : '',
+              ),
               optionsBuilder: (TextEditingValue textEditingValue) {
                 if (textEditingValue.text.isEmpty) {
                   return _products.map((p) => p.name);
@@ -523,8 +527,7 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
                 _updateItem(
                   index,
                   item.copyWith(
-                    productId: Value(product.id),
-                    productName: Value(product.name),
+                    itemId: Value(product.id),
                     description: newDescription,
                   ),
                 );
@@ -548,8 +551,8 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
                         _updateItem(
                           index,
                           item.copyWith(
-                            productName: Value(value),
-                            productId: const Value(null),
+                            description: value,
+                            itemId: const Value(null),
                           ),
                         );
                       },

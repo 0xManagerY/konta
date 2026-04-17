@@ -10,10 +10,10 @@ class CustomerRepository {
 
   CustomerRepository(this._db, this._syncQueue);
 
-  Future<List<Customer>> getAll(String userId) async {
-    Logger.method('CustomerRepository', 'getAll', {'userId': userId});
-    return (_db.select(_db.customers)
-          ..where((c) => c.userId.equals(userId))
+  Future<List<Contact>> getAll(String companyId) async {
+    Logger.method('CustomerRepository', 'getAll', {'companyId': companyId});
+    return (_db.select(_db.contacts)
+          ..where((c) => c.companyId.equals(companyId))
           ..orderBy([
             (c) =>
                 OrderingTerm(expression: c.createdAt, mode: OrderingMode.desc),
@@ -21,14 +21,14 @@ class CustomerRepository {
         .get();
   }
 
-  Future<Customer?> getById(String id) async {
+  Future<Contact?> getById(String id) async {
     Logger.method('CustomerRepository', 'getById', {'id': id});
     return (_db.select(
-      _db.customers,
+      _db.contacts,
     )..where((c) => c.id.equals(id))).getSingleOrNull();
   }
 
-  Future<void> insert(Customer customer) async {
+  Future<void> insert(Contact customer) async {
     Logger.method('CustomerRepository', 'insert', {
       'id': customer.id,
       'name': customer.name,
@@ -37,21 +37,21 @@ class CustomerRepository {
       'id': customer.id,
       'name': customer.name,
     });
-    await _db.into(_db.customers).insert(customer);
+    await _db.into(_db.contacts).insert(customer);
     await _syncQueue.queueInsert('customers', customer.id);
     Logger.success('Customer inserted', tag: 'REPO');
   }
 
-  Future<void> update(Customer customer) async {
+  Future<void> update(Contact customer) async {
     Logger.method('CustomerRepository', 'update', {'id': customer.id});
     Logger.db('UPDATE', 'customers', {
       'id': customer.id,
       'name': customer.name,
     });
     await (_db.update(
-      _db.customers,
+      _db.contacts,
     )..where((c) => c.id.equals(customer.id))).write(
-      CustomersCompanion(
+      ContactsCompanion(
         name: Value(customer.name),
         ice: Value(customer.ice),
         rc: Value(customer.rc),
@@ -60,7 +60,6 @@ class CustomerRepository {
         cnss: Value(customer.cnss),
         legalForm: Value(customer.legalForm),
         capital: Value(customer.capital),
-        status: Value(customer.status),
         address: Value(customer.address),
         phones: Value(customer.phones),
         fax: Value(customer.fax),
@@ -77,20 +76,20 @@ class CustomerRepository {
     Logger.method('CustomerRepository', 'delete', {'id': id});
     Logger.db('DELETE', 'customers', {'id': id});
     await _syncQueue.queueDelete('customers', id);
-    await (_db.delete(_db.customers)..where((c) => c.id.equals(id))).go();
+    await (_db.delete(_db.contacts)..where((c) => c.id.equals(id))).go();
     Logger.success('Customer deleted', tag: 'REPO');
   }
 
-  Future<List<Customer>> search(String userId, String query) async {
+  Future<List<Contact>> search(String companyId, String query) async {
     Logger.method('CustomerRepository', 'search', {
-      'userId': userId,
+      'companyId': companyId,
       'query': query,
     });
     final searchPattern = '%$query%';
-    return (_db.select(_db.customers)
+    return (_db.select(_db.contacts)
           ..where(
             (c) =>
-                c.userId.equals(userId) &
+                c.companyId.equals(companyId) &
                 (c.name.like(searchPattern) |
                     c.ice.like(searchPattern) |
                     c.phones.like(searchPattern)),

@@ -84,7 +84,7 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen>
     );
   }
 
-  Widget _buildListTab(AsyncValue<List<Invoice>> invoicesAsync) {
+  Widget _buildListTab(AsyncValue<List<Document>> invoicesAsync) {
     return Column(
       children: [
         Padding(
@@ -153,14 +153,14 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen>
     );
   }
 
-  Widget _buildStatsTab(AsyncValue<List<Invoice>> invoicesAsync) {
+  Widget _buildStatsTab(AsyncValue<List<Document>> invoicesAsync) {
     return invoicesAsync.when(
       data: (invoices) {
         final totalHT = invoices.fold<double>(0, (sum, i) => sum + i.subtotal);
         final totalTTC = invoices.fold<double>(0, (sum, i) => sum + i.total);
-        final paidCount = invoices.where((i) => i.status == 'paid').length;
+        final paidCount = invoices.where((i) => i.status.name == 'paid').length;
         final pendingCount = invoices
-            .where((i) => i.status == 'sent' || i.status == 'overdue')
+            .where((i) => i.status.name == 'sent' || i.status.name == 'overdue')
             .length;
 
         return Padding(
@@ -224,7 +224,7 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen>
                       const SizedBox(height: 16),
                       ..._statusFilters.skip(1).map((status) {
                         final count = invoices
-                            .where((i) => i.status == status)
+                            .where((i) => i.status.name == status)
                             .length;
                         if (count == 0) return const SizedBox.shrink();
                         return Padding(
@@ -262,13 +262,13 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen>
     );
   }
 
-  Widget _buildInvoiceCard(Invoice invoice) {
+  Widget _buildInvoiceCard(Document invoice) {
     final customerAsync = ref.watch(
-      StreamProvider.autoDispose<Customer?>((ref) {
+      StreamProvider.autoDispose<Contact?>((ref) {
         final db = ref.watch(databaseProvider);
         return (db.select(
-          db.customers,
-        )..where((c) => c.id.equals(invoice.customerId))).watchSingleOrNull();
+          db.contacts,
+        )..where((c) => c.id.equals(invoice.contactId))).watchSingleOrNull();
       }),
     );
 
@@ -276,9 +276,9 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen>
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: _getStatusColor(invoice.status),
+          backgroundColor: _getStatusColor(invoice.status.name),
           child: Icon(
-            _getStatusIcon(invoice.status),
+            _getStatusIcon(invoice.status.name),
             color: Colors.white,
             size: 20,
           ),
@@ -309,7 +309,7 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen>
               _currencyFormat.format(invoice.total),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            _getStatusChip(invoice.status),
+            _getStatusChip(invoice.status.name),
           ],
         ),
         onTap: () => context.push('/invoices/${invoice.id}'),
@@ -348,10 +348,12 @@ class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen>
     );
   }
 
-  List<Invoice> _filterInvoices(List<Invoice> invoices) {
+  List<Document> _filterInvoices(List<Document> invoices) {
     var filtered = invoices;
     if (_selectedStatus != 'all') {
-      filtered = filtered.where((i) => i.status == _selectedStatus).toList();
+      filtered = filtered
+          .where((i) => i.status.name == _selectedStatus)
+          .toList();
     }
     if (_searchController.text.isNotEmpty) {
       final query = _searchController.text.toLowerCase();

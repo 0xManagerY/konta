@@ -24,7 +24,7 @@ final currentUserIdProvider = Provider<String?>((ref) {
   return SupabaseService.currentUserId;
 });
 
-final profileProvider = FutureProvider<Profile?>((ref) async {
+final profileProvider = FutureProvider<UserProfile?>((ref) async {
   final userId = ref.watch(currentUserIdProvider);
   if (userId == null) return null;
 
@@ -41,7 +41,7 @@ final needsOnboardingProvider = FutureProvider<bool>((ref) async {
 
   if (profile == null) return true;
 
-  return profile.companyName.isEmpty;
+  return profile.defaultCompanyId == null;
 });
 
 final syncAndCheckOnboardingProvider = FutureProvider<void>((ref) async {

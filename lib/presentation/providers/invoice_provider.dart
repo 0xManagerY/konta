@@ -14,7 +14,7 @@ final invoiceRepositoryProvider = Provider<InvoiceRepository>((ref) {
   return InvoiceRepository(db, syncQueue);
 });
 
-final invoicesProvider = StreamProvider<List<Invoice>>((ref) {
+final invoicesProvider = StreamProvider<List<Document>>((ref) {
   Logger.method('Provider', 'invoicesProvider', {'watch': true});
   final db = ref.watch(databaseProvider);
   final userId = SupabaseService.currentUserId;
@@ -27,15 +27,15 @@ final invoicesProvider = StreamProvider<List<Invoice>>((ref) {
   }
 
   Logger.debug('Watching invoices for user: $userId', tag: 'INVOICE_PROVIDER');
-  return (db.select(db.invoices)
-        ..where((i) => i.userId.equals(userId))
+  return (db.select(db.documents)
+        ..where((i) => i.companyId.equals(userId))
         ..orderBy([
           (i) => OrderingTerm(expression: i.createdAt, mode: OrderingMode.desc),
         ]))
       .watch();
 });
 
-final invoicesByTypeProvider = StreamProvider.family<List<Invoice>, String>((
+final invoicesByTypeProvider = StreamProvider.family<List<Document>, String>((
   ref,
   type,
 ) {
@@ -54,15 +54,15 @@ final invoicesByTypeProvider = StreamProvider.family<List<Invoice>, String>((
     'Watching invoices type=$type for user: $userId',
     tag: 'INVOICE_PROVIDER',
   );
-  return (db.select(db.invoices)
-        ..where((i) => i.userId.equals(userId) & i.type.equals(type))
+  return (db.select(db.documents)
+        ..where((i) => i.companyId.equals(userId) & i.type.equals(type))
         ..orderBy([
           (i) => OrderingTerm(expression: i.createdAt, mode: OrderingMode.desc),
         ]))
       .watch();
 });
 
-final invoicesByStatusProvider = StreamProvider.family<List<Invoice>, String>((
+final invoicesByStatusProvider = StreamProvider.family<List<Document>, String>((
   ref,
   status,
 ) {
@@ -81,8 +81,8 @@ final invoicesByStatusProvider = StreamProvider.family<List<Invoice>, String>((
     'Watching invoices status=$status for user: $userId',
     tag: 'INVOICE_PROVIDER',
   );
-  return (db.select(db.invoices)
-        ..where((i) => i.userId.equals(userId) & i.status.equals(status))
+  return (db.select(db.documents)
+        ..where((i) => i.companyId.equals(userId) & i.status.equals(status))
         ..orderBy([
           (i) => OrderingTerm(expression: i.createdAt, mode: OrderingMode.desc),
         ]))

@@ -1,7 +1,7 @@
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as html_dom;
 import 'package:http/http.dart' as http;
-import 'package:konta/core/utils/logger.dart';
+import 'package:konta/domain/services/log_service.dart';
 
 class CompanyInfo {
   final String name;
@@ -38,6 +38,7 @@ class CompanyInfo {
 }
 
 class CompanySearchService {
+  static final _log = LogService();
   static const _baseUrl = 'https://maroc.welipro.com';
 
   String decodeCfEmailForTest(String encoded) => _decodeCfEmail(encoded);
@@ -54,12 +55,12 @@ class CompanySearchService {
   }
 
   Future<List<CompanyInfo>> search(String query) async {
-    Logger.method('CompanySearchService', 'search', {'query': query});
+    _log.info('Service', 'search', data: {'query': query});
     final url = Uri.parse(
       '$_baseUrl/recherche?q=${Uri.encodeComponent(query)}&type=&rs=&cp=1&cp_max=2035272260000&et=&v=',
     );
 
-    Logger.network('GET', url.toString());
+    _log.info('Service', 'GET ${url.toString()}');
     final response = await http.get(
       url,
       headers: {
@@ -69,19 +70,12 @@ class CompanySearchService {
     );
 
     if (response.statusCode != 200) {
-      Logger.error(
-        'SEARCH_FAILED',
-        tag: 'COMPANY_SEARCH',
-        error: 'Status: ${response.statusCode}',
-      );
+      _log.error('Service', 'SEARCH_FAILED Status: ${response.statusCode}');
       throw Exception('Failed to search: ${response.statusCode}');
     }
 
     final results = _parseSearchResults(response.body);
-    Logger.success(
-      'Found ${results.length} results for query: $query',
-      tag: 'COMPANY_SEARCH',
-    );
+    _log.info('Service', 'Found ${results.length} results for query: $query');
     return results;
   }
 
@@ -146,18 +140,13 @@ class CompanySearchService {
   }
 
   Future<CompanyInfo?> getDetails(CompanyInfo basicInfo) async {
-    Logger.method('CompanySearchService', 'getDetails', {
-      'name': basicInfo.name,
-    });
+    _log.info('Service', 'getDetails', data: {'name': basicInfo.name});
     if (basicInfo.detailsUrl == null) {
-      Logger.warning(
-        'No details URL for: ${basicInfo.name}',
-        tag: 'COMPANY_SEARCH',
-      );
+      _log.warn('Service', 'No details URL for: ${basicInfo.name}');
       return null;
     }
 
-    Logger.network('GET', basicInfo.detailsUrl!);
+    _log.info('Service', 'GET ${basicInfo.detailsUrl!}');
     final response = await http.get(
       Uri.parse(basicInfo.detailsUrl!),
       headers: {
@@ -167,19 +156,13 @@ class CompanySearchService {
     );
 
     if (response.statusCode != 200) {
-      Logger.warning(
-        'Failed to fetch details: ${response.statusCode}',
-        tag: 'COMPANY_SEARCH',
-      );
+      _log.warn('Service', 'Failed to fetch details: ${response.statusCode}');
       return null;
     }
 
     final details = _parseDetails(response.body, basicInfo);
     if (details != null) {
-      Logger.success(
-        'Details parsed for: ${details.name}',
-        tag: 'COMPANY_SEARCH',
-      );
+      _log.info('Service', 'Details parsed for: ${details.name}');
     }
     return details;
   }

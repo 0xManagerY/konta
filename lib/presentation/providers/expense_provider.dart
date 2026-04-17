@@ -5,30 +5,29 @@ import 'package:konta/data/repositories/expense_repository.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 import 'package:konta/data/sync/sync_queue_helper.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
-import 'package:konta/core/utils/logger.dart';
+import 'package:konta/domain/services/log_service.dart';
+
+final _log = LogService();
 
 final expenseRepositoryProvider = Provider<ExpenseRepository>((ref) {
-  Logger.method('Provider', 'expenseRepositoryProvider', {'init': true});
+  _log.debug('Provider', 'expenseRepositoryProvider', data: {'init': true});
   final db = ref.watch(databaseProvider);
   final syncQueue = ref.watch(syncQueueHelperProvider);
   return ExpenseRepository(db, syncQueue);
 });
 
 final expensesProvider = StreamProvider<List<Expense>>((ref) {
-  Logger.method('Provider', 'expensesProvider', {'watch': true});
+  _log.debug('Provider', 'expensesProvider', data: {'watch': true});
   final db = ref.watch(databaseProvider);
   final userId = SupabaseService.currentUserId;
   if (userId == null) {
-    Logger.warning(
-      'No user ID, returning empty expenses stream',
-      tag: 'EXPENSE_PROVIDER',
-    );
+    _log.warn('Provider', 'No user ID, returning empty expenses stream');
     return Stream.value([]);
   }
 
-  Logger.debug('Watching expenses for user: $userId', tag: 'EXPENSE_PROVIDER');
+  _log.debug('Provider', 'Watching expenses for user: $userId');
   return (db.select(db.expenses)
-        ..where((e) => e.userId.equals(userId))
+        ..where((e) => e.companyId.equals(userId))
         ..orderBy([
           (e) => OrderingTerm(expression: e.date, mode: OrderingMode.desc),
         ]))
@@ -40,31 +39,26 @@ final expensesByMonthProvider =
       ref,
       params,
     ) {
-      Logger.method('Provider', 'expensesByMonthProvider', {
-        'year': params.year,
-        'month': params.month,
-      });
+      _log.debug(
+        'Provider',
+        'expensesByMonthProvider',
+        data: {'year': params.year, 'month': params.month},
+      );
       final db = ref.watch(databaseProvider);
       final userId = SupabaseService.currentUserId;
       if (userId == null) {
-        Logger.warning(
-          'No user ID, returning empty expenses stream',
-          tag: 'EXPENSE_PROVIDER',
-        );
+        _log.warn('Provider', 'No user ID, returning empty expenses stream');
         return Stream.value([]);
       }
 
       final start = DateTime(params.year, params.month, 1);
       final end = DateTime(params.year, params.month + 1, 0, 23, 59, 59);
-      Logger.debug(
-        'Watching expenses from $start to $end',
-        tag: 'EXPENSE_PROVIDER',
-      );
+      _log.debug('Provider', 'Watching expenses from $start to $end');
 
       return (db.select(db.expenses)
             ..where(
               (e) =>
-                  e.userId.equals(userId) &
+                  e.companyId.equals(userId) &
                   e.date.isBiggerOrEqualValue(start) &
                   e.date.isSmallerOrEqualValue(end),
             )
@@ -79,17 +73,15 @@ final expenseTotalsProvider =
       ref,
       params,
     ) async {
-      Logger.method('Provider', 'expenseTotalsProvider', {
-        'year': params.year,
-        'month': params.month,
-      });
+      _log.debug(
+        'Provider',
+        'expenseTotalsProvider',
+        data: {'year': params.year, 'month': params.month},
+      );
       final repo = ref.watch(expenseRepositoryProvider);
       final userId = SupabaseService.currentUserId;
       if (userId == null) {
-        Logger.warning(
-          'No user ID, returning empty totals',
-          tag: 'EXPENSE_PROVIDER',
-        );
+        _log.warn('Provider', 'No user ID, returning empty totals');
         return {};
       }
 
@@ -98,6 +90,6 @@ final expenseTotalsProvider =
         params.year,
         params.month,
       );
-      Logger.debug('Expense totals: $totals', tag: 'EXPENSE_PROVIDER');
+      _log.debug('Provider', 'Expense totals: $totals');
       return totals;
     });

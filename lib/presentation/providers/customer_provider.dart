@@ -14,7 +14,7 @@ final customerRepositoryProvider = Provider<CustomerRepository>((ref) {
   return CustomerRepository(db, syncQueue);
 });
 
-final customersProvider = StreamProvider<List<Customer>>((ref) {
+final customersProvider = StreamProvider<List<Contact>>((ref) {
   Logger.method('Provider', 'customersProvider', {'watch': true});
   final db = ref.watch(databaseProvider);
   final userId = SupabaseService.currentUserId;
@@ -30,8 +30,8 @@ final customersProvider = StreamProvider<List<Customer>>((ref) {
     'Watching customers for user: $userId',
     tag: 'CUSTOMER_PROVIDER',
   );
-  return (db.select(db.customers)
-        ..where((c) => c.userId.equals(userId))
+  return (db.select(db.contacts)
+        ..where((c) => c.companyId.equals(userId))
         ..orderBy([
           (c) => OrderingTerm(expression: c.createdAt, mode: OrderingMode.desc),
         ]))

@@ -1,10 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:konta/data/local/database.dart';
-import 'package:konta/core/utils/logger.dart';
+import 'package:konta/domain/services/log_service.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
-  Logger.method('Provider', 'databaseProvider', {'init': true});
+  final log = LogService();
+  log.debug(LogTags.provider, 'databaseProvider - initializing');
   final db = getDatabase();
-  Logger.success('Database instance created', tag: 'DATABASE_PROVIDER');
+  log.info(LogTags.provider, 'databaseProvider - initialized');
   return db;
 });

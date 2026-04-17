@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 import 'package:konta/data/local/database.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 import 'package:konta/core/utils/logger.dart';
 import 'package:konta/presentation/providers/auth_provider.dart';
+import 'package:konta/presentation/providers/database_provider.dart';
 import 'package:konta/presentation/providers/sync_provider.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -100,10 +102,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         throw Exception('User not authenticated');
       }
 
-      final profile = Profile(
-        id: userId,
-        email: userEmail,
-        companyName: _companyNameController.text.trim(),
+      final now = DateTime.now();
+      final companyId = const Uuid().v4();
+      final company = Company(
+        id: companyId,
+        name: _companyNameController.text.trim(),
         legalStatus: _selectedLegalStatus,
         ice: _iceController.text.trim().isNotEmpty
             ? _iceController.text.trim()
@@ -124,18 +127,28 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             ? _phoneController.text.trim()
             : null,
         isAutoEntrepreneur: _isAutoEntrepreneur,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
+        createdAt: now,
+        updatedAt: now,
         syncStatus: 'pending',
       );
 
+      final profile = UserProfile(
+        id: userId,
+        email: userEmail,
+        defaultCompanyId: companyId,
+        createdAt: now,
+        updatedAt: now,
+      );
+
       Logger.ui('OnboardingScreen', 'PROFILE_CREATED');
-      Logger.ui('OnboardingScreen', '  companyName: ${profile.companyName}');
-      Logger.ui('OnboardingScreen', '  legalStatus: ${profile.legalStatus}');
-      Logger.ui('OnboardingScreen', '  ice: ${profile.ice}');
+      Logger.ui('OnboardingScreen', ' companyName: ${company.name}');
+      Logger.ui('OnboardingScreen', ' legalStatus: ${company.legalStatus}');
+      Logger.ui('OnboardingScreen', ' ice: ${company.ice}');
 
       Logger.ui('OnboardingScreen', 'CALLING UPSERT_PROFILE');
       try {
+        final db = ref.read(databaseProvider);
+        await (db.into(db.companies).insertOnConflictUpdate(company));
         await repo.upsertProfile(profile);
       } catch (e, st) {
         Logger.error(

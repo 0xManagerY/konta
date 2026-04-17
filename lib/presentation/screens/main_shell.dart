@@ -79,7 +79,6 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   Widget build(BuildContext context) {
     Logger.ui('MainShell', 'BUILD');
-    final isSyncing = ref.watch(isSyncingProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),

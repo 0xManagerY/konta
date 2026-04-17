@@ -8,13 +8,13 @@ import 'package:konta/presentation/providers/database_provider.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 import 'package:konta/core/utils/logger.dart';
 
-final _customerProvider = StreamProvider.autoDispose.family<Customer?, String>((
+final _customerProvider = StreamProvider.autoDispose.family<Contact?, String>((
   ref,
   customerId,
 ) {
   final db = ref.watch(databaseProvider);
   return (db.select(
-    db.customers,
+    db.contacts,
   )..where((c) => c.id.equals(customerId))).watchSingleOrNull();
 });
 
@@ -23,7 +23,7 @@ final _paymentsProvider = StreamProvider.autoDispose
       final db = ref.watch(databaseProvider);
       return (db.select(
         db.payments,
-      )..where((p) => p.invoiceId.equals(invoiceId))).watch();
+      )..where((p) => p.documentId.equals(invoiceId))).watch();
     });
 
 class DocumentListScreen extends ConsumerStatefulWidget {
@@ -100,7 +100,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen>
       return const Center(child: Text('Veuillez vous connecter'));
     }
 
-    return StreamBuilder<List<Invoice>>(
+    return StreamBuilder<List<Document>>(
       stream: _getDocumentsStream(db, userId),
       builder: (context, snapshot) {
         final documents = snapshot.data ?? [];
@@ -205,9 +205,9 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen>
     );
   }
 
-  Stream<List<Invoice>> _getDocumentsStream(AppDatabase db, String userId) {
-    final baseQuery = db.select(db.invoices)
-      ..where((i) => i.userId.equals(userId))
+  Stream<List<Document>> _getDocumentsStream(AppDatabase db, String userId) {
+    final baseQuery = db.select(db.documents)
+      ..where((i) => i.companyId.equals(userId))
       ..orderBy([
         (i) => OrderingTerm(expression: i.createdAt, mode: OrderingMode.desc),
       ]);
@@ -220,7 +220,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen>
       return const Center(child: Text('Veuillez vous connecter'));
     }
 
-    return StreamBuilder<List<Invoice>>(
+    return StreamBuilder<List<Document>>(
       stream: _getDocumentsStream(db, userId),
       builder: (context, snapshot) {
         final documents = snapshot.data ?? [];
@@ -228,9 +228,9 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen>
 
         final totalHT = filtered.fold<double>(0, (sum, d) => sum + d.subtotal);
         final totalTTC = filtered.fold<double>(0, (sum, d) => sum + d.total);
-        final paidCount = filtered.where((d) => d.status == 'paid').length;
+        final paidCount = filtered.where((d) => d.status.name == 'paid').length;
         final pendingCount = filtered
-            .where((d) => d.status == 'sent' || d.status == 'overdue')
+            .where((d) => d.status.name == 'sent' || d.status.name == 'overdue')
             .length;
 
         return Padding(
@@ -294,7 +294,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen>
                       const SizedBox(height: 16),
                       ..._statusFilters.skip(1).map((status) {
                         final count = filtered
-                            .where((d) => d.status == status)
+                            .where((d) => d.status.name == status)
                             .length;
                         if (count == 0) return const SizedBox.shrink();
                         return Padding(
@@ -330,8 +330,8 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen>
     );
   }
 
-  Widget _buildDocumentCard(Invoice doc, AppDatabase db) {
-    final customerAsync = ref.watch(_customerProvider(doc.customerId));
+  Widget _buildDocumentCard(Document doc, AppDatabase db) {
+    final customerAsync = ref.watch(_customerProvider(doc.contactId));
     final paymentsAsync = ref.watch(_paymentsProvider(doc.id));
 
     final totalPaid =
@@ -344,11 +344,13 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen>
     final isFullyPaid = remaining.abs() < 0.01;
     final isSelected = _selectedIds.contains(doc.id);
     final canEdit =
-        (doc.type == 'devis' && !doc.isConverted) || doc.status == 'draft';
+        (doc.type.name == 'quote' && !doc.isConverted) ||
+        doc.status.name == 'draft';
 
-    final displayStatus = doc.type == 'invoice' && isFullyPaid && totalPaid > 0
+    final displayStatus =
+        doc.type.name == 'invoice' && isFullyPaid && totalPaid > 0
         ? 'paid'
-        : doc.status;
+        : doc.status.name;
 
     return Dismissible(
       key: Key(doc.id),
@@ -405,13 +407,13 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _getTypeColor(doc.type).withValues(alpha: 0.1),
+                  color: _getTypeColor(doc.type.name).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  _getTypeAbbreviation(doc.type),
+                  _getTypeAbbreviation(doc.type.name),
                   style: TextStyle(
-                    color: _getTypeColor(doc.type),
+                    color: _getTypeColor(doc.type.name),
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
@@ -443,7 +445,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen>
                 loading: () => const Text('Chargement...'),
                 error: (_, __) => const Text('Erreur'),
               ),
-              if (doc.type == 'invoice' && totalPaid > 0)
+              if (doc.type.name == 'invoice' && totalPaid > 0)
                 Text(
                   'Payé: ${_currencyFormat.format(totalPaid)} | Reste: ${_currencyFormat.format(remaining)}',
                   style: TextStyle(
@@ -465,7 +467,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen>
                 IconButton(
                   icon: const Icon(Icons.edit),
                   onPressed: () {
-                    final route = switch (doc.type) {
+                    final route = switch (doc.type.name) {
                       'invoice' => '/invoices/edit/${doc.id}',
                       'devis' => '/quotes/edit/${doc.id}',
                       'avoir' => '/avoirs/edit/${doc.id}',
@@ -506,7 +508,7 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen>
                 }
               });
             } else {
-              final route = switch (doc.type) {
+              final route = switch (doc.type.name) {
                 'invoice' => '/invoices/${doc.id}',
                 'devis' => '/quotes/${doc.id}',
                 'avoir' => '/avoirs/${doc.id}',
@@ -523,10 +525,12 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen>
   Future<void> _deleteDocument(AppDatabase db, String id) async {
     await db.transaction(() async {
       await (db.delete(
-        db.invoiceItems,
-      )..where((i) => i.invoiceId.equals(id))).go();
-      await (db.delete(db.payments)..where((p) => p.invoiceId.equals(id))).go();
-      await (db.delete(db.invoices)..where((i) => i.id.equals(id))).go();
+        db.documentLines,
+      )..where((i) => i.documentId.equals(id))).go();
+      await (db.delete(
+        db.payments,
+      )..where((p) => p.documentId.equals(id))).go();
+      await (db.delete(db.documents)..where((i) => i.id.equals(id))).go();
     });
     if (mounted) {
       ScaffoldMessenger.of(
@@ -597,15 +601,17 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen>
     );
   }
 
-  List<Invoice> _filterDocuments(List<Invoice> documents) {
+  List<Document> _filterDocuments(List<Document> documents) {
     var filtered = documents;
 
     if (_selectedType != 'all') {
-      filtered = filtered.where((d) => d.type == _selectedType).toList();
+      filtered = filtered.where((d) => d.type.name == _selectedType).toList();
     }
 
     if (_selectedStatus != 'all') {
-      filtered = filtered.where((d) => d.status == _selectedStatus).toList();
+      filtered = filtered
+          .where((d) => d.status.name == _selectedStatus)
+          .toList();
     }
 
     if (_searchController.text.isNotEmpty) {
@@ -631,18 +637,18 @@ class _DocumentListScreenState extends ConsumerState<DocumentListScreen>
 
   String _getTypeAbbreviation(String type) {
     return switch (type) {
-      'devis' => 'DEV',
+      'devis' || 'quote' => 'DEV',
       'invoice' => 'FAC',
-      'avoir' => 'AVR',
+      'avoir' || 'creditNote' => 'AVR',
       _ => 'DOC',
     };
   }
 
   Color _getTypeColor(String type) {
     return switch (type) {
-      'devis' => Colors.purple,
+      'devis' || 'quote' => Colors.purple,
       'invoice' => Colors.blue,
-      'avoir' => Colors.orange,
+      'avoir' || 'creditNote' => Colors.orange,
       _ => Colors.grey,
     };
   }

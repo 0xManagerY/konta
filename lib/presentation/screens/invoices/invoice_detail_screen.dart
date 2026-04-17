@@ -12,46 +12,49 @@ import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' hide Column, Table;
 import 'package:konta/core/utils/logger.dart';
 import 'package:konta/data/local/database.dart';
+import 'package:konta/data/local/tables/tables.dart';
 import 'package:konta/domain/services/pdf_service.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
 import 'package:konta/presentation/providers/invoice_provider.dart';
 import 'package:konta/presentation/providers/customer_provider.dart';
 import 'package:konta/presentation/providers/payment_provider.dart';
+import 'package:konta/presentation/providers/invoice_template_provider.dart';
 import 'package:konta/data/remote/supabase_service.dart';
+import 'package:http/http.dart' as http;
 
-final _invoiceProvider = StreamProvider.autoDispose.family<Invoice?, String>((
+final _invoiceProvider = StreamProvider.autoDispose.family<Document?, String>((
   ref,
   invoiceId,
 ) {
   final db = ref.watch(databaseProvider);
   return (db.select(
-    db.invoices,
+    db.documents,
   )..where((i) => i.id.equals(invoiceId))).watchSingleOrNull();
 });
 
-final _customerProvider = StreamProvider.autoDispose.family<Customer?, String>((
+final _customerProvider = StreamProvider.autoDispose.family<Contact?, String>((
   ref,
   customerId,
 ) {
   final db = ref.watch(databaseProvider);
   return (db.select(
-    db.customers,
+    db.contacts,
   )..where((c) => c.id.equals(customerId))).watchSingleOrNull();
 });
 
 final _itemsProvider = StreamProvider.autoDispose
-    .family<List<InvoiceItem>, String>((ref, invoiceId) {
+    .family<List<DocumentLine>, String>((ref, invoiceId) {
       final db = ref.watch(databaseProvider);
       return (db.select(
-        db.invoiceItems,
-      )..where((i) => i.invoiceId.equals(invoiceId))).watch();
+        db.documentLines,
+      )..where((i) => i.documentId.equals(invoiceId))).watch();
     });
 
 final _paymentsProvider = StreamProvider.autoDispose
     .family<List<Payment>, String>((ref, invoiceId) {
       final db = ref.watch(databaseProvider);
       return (db.select(db.payments)
-            ..where((p) => p.invoiceId.equals(invoiceId))
+            ..where((p) => p.documentId.equals(invoiceId))
             ..orderBy([
               (p) => OrderingTerm(
                 expression: p.paymentDate,
@@ -62,12 +65,12 @@ final _paymentsProvider = StreamProvider.autoDispose
     });
 
 final _relatedDocumentsProvider = StreamProvider.autoDispose
-    .family<List<Invoice>, ({String parentId, String parentType})>((
+    .family<List<Document>, ({String parentId, String parentType})>((
       ref,
       params,
     ) {
       final db = ref.watch(databaseProvider);
-      return (db.select(db.invoices)
+      return (db.select(db.documents)
             ..where(
               (i) =>
                   i.parentDocumentId.equals(params.parentId) &
@@ -120,17 +123,22 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                 onSelected: (value) => _handleMenuAction(value, invoice),
                 itemBuilder: (context) => [
                   PopupMenuItem(
-                    enabled: !(invoice.type == 'devis' && invoice.isConverted),
+                    enabled:
+                        !(invoice.type.name == 'devis' && invoice.isConverted),
                     child: ListTile(
                       leading: Icon(
                         Icons.edit,
-                        color: (invoice.type == 'devis' && invoice.isConverted)
+                        color:
+                            (invoice.type.name == 'devis' &&
+                                invoice.isConverted)
                             ? Colors.grey
                             : null,
                       ),
                       title: Text(
                         'Modifier',
-                        style: (invoice.type == 'devis' && invoice.isConverted)
+                        style:
+                            (invoice.type.name == 'devis' &&
+                                invoice.isConverted)
                             ? const TextStyle(color: Colors.grey)
                             : null,
                       ),
@@ -143,7 +151,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                       title: Text('Dupliquer'),
                     ),
                   ),
-                  if (invoice.type == 'devis' && !invoice.isConverted)
+                  if (invoice.type.name == 'devis' && !invoice.isConverted)
                     const PopupMenuItem(
                       value: 'convert',
                       child: ListTile(
@@ -151,7 +159,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                         title: Text('Convertir en facture'),
                       ),
                     ),
-                  if (invoice.type == 'invoice')
+                  if (invoice.type.name == 'invoice')
                     const PopupMenuItem(
                       value: 'create_avoir',
                       child: ListTile(
@@ -192,7 +200,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     );
   }
 
-  Widget _buildContent(Invoice invoice) {
+  Widget _buildContent(Document invoice) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -204,8 +212,8 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
           const SizedBox(height: 16),
           _buildTotalsCard(invoice),
           const SizedBox(height: 16),
-          if (invoice.type == 'invoice') _buildPaymentsCard(invoice),
-          if (invoice.type == 'invoice') const SizedBox(height: 16),
+          if (invoice.type.name == 'invoice') _buildPaymentsCard(invoice),
+          if (invoice.type.name == 'invoice') const SizedBox(height: 16),
           _buildRelatedDocumentsCard(invoice),
           const SizedBox(height: 16),
           _buildActionsCard(invoice),
@@ -214,7 +222,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     );
   }
 
-  Widget _buildHeaderCard(Invoice invoice) {
+  Widget _buildHeaderCard(Document invoice) {
     final paymentsAsync = ref.watch(_paymentsProvider(invoice.id));
     final totalPaid =
         paymentsAsync.valueOrNull?.fold<double>(
@@ -224,13 +232,15 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
         0;
     final remaining = invoice.total - totalPaid;
     final isFullyPaid =
-        invoice.type == 'invoice' && totalPaid > 0 && remaining.abs() < 0.01;
-    final displayStatus = isFullyPaid ? 'paid' : invoice.status;
+        invoice.type.name == 'invoice' &&
+        totalPaid > 0 &&
+        remaining.abs() < 0.01;
+    final displayStatus = isFullyPaid ? 'paid' : invoice.status.name;
 
-    final typeLabel = switch (invoice.type) {
+    final typeLabel = switch (invoice.type.name) {
       'invoice' => 'FACTURE',
-      'devis' => 'DEVIS',
-      'avoir' => 'AVOIR',
+      'quote' => 'DEVIS',
+      'creditNote' => 'AVOIR',
       _ => 'DOCUMENT',
     };
     return Card(
@@ -297,7 +307,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            _buildCustomerInfo(invoice.customerId),
+            _buildCustomerInfo(invoice.contactId),
           ],
         ),
       ),
@@ -316,7 +326,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     );
   }
 
-  Widget _buildParentDocumentLink(Invoice invoice) {
+  Widget _buildParentDocumentLink(Document invoice) {
     final parentType = invoice.parentDocumentType ?? '';
     final parentLabel = switch (parentType) {
       'invoice' => 'Facture',
@@ -356,7 +366,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     );
   }
 
-  void _navigateToParentDocument(Invoice invoice) {
+  void _navigateToParentDocument(Document invoice) {
     final parentType = invoice.parentDocumentType;
     final parentId = invoice.parentDocumentId;
 
@@ -466,7 +476,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     );
   }
 
-  Widget _buildItemsCard(Invoice invoice) {
+  Widget _buildItemsCard(Document invoice) {
     final itemsAsync = ref.watch(_itemsProvider(invoice.id));
 
     return Card(
@@ -577,7 +587,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     );
   }
 
-  Widget _buildTotalsCard(Invoice invoice) {
+  Widget _buildTotalsCard(Document invoice) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -618,7 +628,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     );
   }
 
-  Widget _buildPaymentsCard(Invoice invoice) {
+  Widget _buildPaymentsCard(Document invoice) {
     final paymentsAsync = ref.watch(_paymentsProvider(invoice.id));
 
     return Card(
@@ -688,8 +698,8 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     );
   }
 
-  Widget _buildRelatedDocumentsCard(Invoice invoice) {
-    if (invoice.type != 'devis' && invoice.type != 'invoice') {
+  Widget _buildRelatedDocumentsCard(Document invoice) {
+    if (invoice.type.name != 'devis' && invoice.type.name != 'invoice') {
       return const SizedBox.shrink();
     }
 
@@ -711,8 +721,8 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     );
   }
 
-  Widget _buildRelatedDocumentsList(Invoice invoice) {
-    if (invoice.type == 'devis') {
+  Widget _buildRelatedDocumentsList(Document invoice) {
+    if (invoice.type.name == 'devis') {
       final facturesAsync = ref.watch(
         _relatedDocumentsProvider((
           parentId: invoice.id,
@@ -739,7 +749,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
       );
     }
 
-    if (invoice.type == 'invoice') {
+    if (invoice.type.name == 'invoice') {
       final avoirsAsync = ref.watch(
         _relatedDocumentsProvider((parentId: invoice.id, parentType: 'avoir')),
       );
@@ -766,7 +776,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     return const SizedBox.shrink();
   }
 
-  Widget _buildRelatedDocumentTile(Invoice doc, String type) {
+  Widget _buildRelatedDocumentTile(Document doc, String type) {
     final typeLabel = switch (type) {
       'invoice' => 'Facture',
       'avoir' => 'Avoir',
@@ -779,13 +789,13 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
       _ => null,
     };
 
-    final statusLabel = switch (doc.status) {
+    final statusLabel = switch (doc.status.name) {
       'draft' => 'Brouillon',
       'sent' => 'Envoyé',
       'paid' => 'Payé',
       'partially_paid' => 'Partiellement payé',
       'cancelled' => 'Annulé',
-      _ => doc.status,
+      _ => doc.status.name,
     };
 
     return ListTile(
@@ -819,7 +829,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     };
   }
 
-  Widget _buildActionsCard(Invoice invoice) {
+  Widget _buildActionsCard(Document invoice) {
     final paymentsAsync = ref.watch(_paymentsProvider(invoice.id));
     final totalPaid =
         paymentsAsync.valueOrNull?.fold<double>(
@@ -829,13 +839,15 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
         0;
     final remaining = invoice.total - totalPaid;
     final isFullyPaid =
-        invoice.type == 'invoice' && totalPaid > 0 && remaining.abs() < 0.01;
+        invoice.type.name == 'invoice' &&
+        totalPaid > 0 &&
+        remaining.abs() < 0.01;
     final canMakePayment =
-        invoice.type == 'invoice' &&
+        invoice.type.name == 'invoice' &&
         !isFullyPaid &&
-        (invoice.status == 'sent' ||
-            invoice.status == 'paid' ||
-            invoice.status == 'partially_paid');
+        (invoice.status.name == 'sent' ||
+            invoice.status.name == 'paid' ||
+            invoice.status.name == 'partially_paid');
 
     return Card(
       child: Padding(
@@ -849,14 +861,14 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                if (invoice.status == 'draft')
+                if (invoice.status.name == 'draft')
                   ElevatedButton.icon(
                     onPressed: () => _updateStatus(invoice, 'sent'),
                     icon: const Icon(Icons.send),
                     label: const Text('Marquer envoyé'),
                   ),
-                if (invoice.type == 'devis' &&
-                    invoice.status == 'sent' &&
+                if (invoice.type.name == 'devis' &&
+                    invoice.status.name == 'sent' &&
                     !invoice.isConverted)
                   ElevatedButton.icon(
                     onPressed: () => _convertToInvoice(invoice),
@@ -877,10 +889,10 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                       foregroundColor: Colors.white,
                     ),
                   ),
-                if (invoice.type == 'invoice' &&
-                    (invoice.status == 'sent' ||
-                        invoice.status == 'paid' ||
-                        invoice.status == 'partially_paid'))
+                if (invoice.type.name == 'invoice' &&
+                    (invoice.status.name == 'sent' ||
+                        invoice.status.name == 'paid' ||
+                        invoice.status.name == 'partially_paid'))
                   ElevatedButton.icon(
                     onPressed: () => _createAvoir(invoice),
                     icon: const Icon(Icons.receipt_long),
@@ -890,7 +902,8 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                       foregroundColor: Colors.white,
                     ),
                   ),
-                if (invoice.status == 'sent' || invoice.status == 'draft')
+                if (invoice.status.name == 'sent' ||
+                    invoice.status.name == 'draft')
                   OutlinedButton.icon(
                     onPressed: () => _updateStatus(invoice, 'cancelled'),
                     icon: const Icon(Icons.cancel),
@@ -924,7 +937,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     );
   }
 
-  Future<void> _previewPdf(Invoice invoice) async {
+  Future<void> _previewPdf(Document invoice) async {
     try {
       final db = ref.read(databaseProvider);
       final userId = SupabaseService.currentUserId;
@@ -938,7 +951,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
       }
 
       final profile = await (db.select(
-        db.profiles,
+        db.userProfiles,
       )..where((p) => p.id.equals(userId))).getSingleOrNull();
       if (profile == null) {
         if (mounted) {
@@ -950,7 +963,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
       }
 
       final customerRepo = ref.read(customerRepositoryProvider);
-      final customer = await customerRepo.getById(invoice.customerId);
+      final customer = await customerRepo.getById(invoice.contactId);
       if (customer == null) {
         if (mounted) {
           ScaffoldMessenger.of(
@@ -963,12 +976,64 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
       final invoiceRepo = ref.read(invoiceRepositoryProvider);
       final items = await invoiceRepo.getItems(invoice.id);
 
+      final defaultCompanyId = profile.defaultCompanyId;
+      if (defaultCompanyId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Entreprise non configurée')),
+          );
+        }
+        return;
+      }
+
+      final company = await (db.select(
+        db.companies,
+      )..where((c) => c.id.equals(defaultCompanyId))).getSingleOrNull();
+      if (company == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Entreprise non trouvée')),
+          );
+        }
+        return;
+      }
+
+      InvoiceTemplate? template;
+      Uint8List? logoBytes;
+      final templateRepo = ref.read(invoiceTemplateRepositoryProvider);
+      template = await templateRepo.getCompanyDefaultTemplate(company.id);
+      if (template != null &&
+          template.headerStyle != HeaderStyle.noLogo &&
+          company.logoUrl != null &&
+          company.logoUrl!.isNotEmpty) {
+        try {
+          final uri = Uri.parse(company.logoUrl!);
+          if (uri.host.contains('supabase')) {
+            final pathSegments = uri.pathSegments;
+            if (pathSegments.length >= 2) {
+              final bucketAndPath = pathSegments.sublist(1).join('/');
+              logoBytes = await SupabaseService.client.storage
+                  .from(pathSegments[0])
+                  .download(bucketAndPath);
+            }
+          } else {
+            final response = await http.get(uri);
+            logoBytes = response.bodyBytes;
+          }
+        } catch (e) {
+          // Logo fetch failed - continue without logo
+        }
+      }
+
       final pdf = await PdfService.generateInvoicePdf(
-        company: profile,
+        company: company,
+        userEmail: profile.email,
         customer: customer,
         invoice: invoice,
         items: items,
         languageCode: 'fr',
+        template: template,
+        logoBytes: logoBytes,
       );
 
       if (mounted) {
@@ -987,29 +1052,67 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     }
   }
 
-  Future<void> _sharePdf(Invoice invoice) async {
+  Future<void> _sharePdf(Document invoice) async {
     final db = ref.read(databaseProvider);
     final userId = SupabaseService.currentUserId;
     if (userId == null) return;
 
     final profile = await (db.select(
-      db.profiles,
+      db.userProfiles,
     )..where((p) => p.id.equals(userId))).getSingleOrNull();
     if (profile == null) return;
 
     final customerRepo = ref.read(customerRepositoryProvider);
-    final customer = await customerRepo.getById(invoice.customerId);
+    final customer = await customerRepo.getById(invoice.contactId);
     if (customer == null) return;
 
     final invoiceRepo = ref.read(invoiceRepositoryProvider);
     final items = await invoiceRepo.getItems(invoice.id);
 
+    final defaultCompanyId2 = profile.defaultCompanyId;
+    if (defaultCompanyId2 == null) return;
+
+    final company = await (db.select(
+      db.companies,
+    )..where((c) => c.id.equals(defaultCompanyId2))).getSingleOrNull();
+    if (company == null) return;
+
+    InvoiceTemplate? template;
+    Uint8List? logoBytes;
+    final templateRepo = ref.read(invoiceTemplateRepositoryProvider);
+    template = await templateRepo.getCompanyDefaultTemplate(company.id);
+    if (template != null &&
+        template.headerStyle != HeaderStyle.noLogo &&
+        company.logoUrl != null &&
+        company.logoUrl!.isNotEmpty) {
+      try {
+        final uri = Uri.parse(company.logoUrl!);
+        if (uri.host.contains('supabase')) {
+          final pathSegments = uri.pathSegments;
+          if (pathSegments.length >= 2) {
+            final bucketAndPath = pathSegments.sublist(1).join('/');
+            logoBytes = await SupabaseService.client.storage
+                .from(pathSegments[0])
+                .download(bucketAndPath);
+          }
+        } else {
+          final response = await http.get(uri);
+          logoBytes = response.bodyBytes;
+        }
+      } catch (e) {
+        // Logo fetch failed - continue without logo
+      }
+    }
+
     final pdf = await PdfService.generateInvoicePdf(
-      company: profile,
+      company: company,
+      userEmail: profile.email,
       customer: customer,
       invoice: invoice,
       items: items,
       languageCode: 'fr',
+      template: template,
+      logoBytes: logoBytes,
     );
 
     final bytes = await pdf.save();
@@ -1019,14 +1122,17 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
 
     await Share.shareXFiles([
       XFile(file.path),
-    ], subject: '${invoice.number} - ${profile.companyName}');
+    ], subject: '${invoice.number} - ${company.name}');
   }
 
-  Future<void> _updateStatus(Invoice invoice, String newStatus) async {
+  Future<void> _updateStatus(Document invoice, String newStatus) async {
     final db = ref.read(databaseProvider);
-    await (db.update(db.invoices)..where((i) => i.id.equals(invoice.id))).write(
-      InvoicesCompanion(
-        status: Value(newStatus),
+    final statusEnum = DocumentStatus.values.byName(newStatus);
+    await (db.update(
+      db.documents,
+    )..where((i) => i.id.equals(invoice.id))).write(
+      DocumentsCompanion(
+        status: Value(statusEnum),
         updatedAt: Value(DateTime.now()),
       ),
     );
@@ -1038,10 +1144,10 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     }
   }
 
-  void _handleMenuAction(String action, Invoice invoice) {
+  void _handleMenuAction(String action, Document invoice) {
     switch (action) {
       case 'edit':
-        if (invoice.type == 'devis' && invoice.isConverted) {
+        if (invoice.type.name == 'devis' && invoice.isConverted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
@@ -1051,7 +1157,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
           );
           return;
         }
-        final editPath = switch (invoice.type) {
+        final editPath = switch (invoice.type.name) {
           'invoice' => '/invoices/edit/${invoice.id}',
           'devis' => '/quotes/edit/${invoice.id}',
           'avoir' => '/avoirs/edit/${invoice.id}',
@@ -1074,7 +1180,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     }
   }
 
-  Future<void> _duplicateInvoice(Invoice invoice) async {
+  Future<void> _duplicateInvoice(Document invoice) async {
     Logger.ui(
       'InvoiceDetailScreen',
       'DUPLICATE_INVOICE',
@@ -1089,13 +1195,13 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     final newId = await invoiceRepo.generateId();
     final now = DateTime.now();
 
-    final newInvoice = Invoice(
+    final newInvoice = Document(
       id: newId,
-      userId: invoice.userId,
-      customerId: invoice.customerId,
+      companyId: invoice.companyId,
+      contactId: invoice.contactId,
       type: invoice.type,
       number: newNumber,
-      status: 'draft',
+      status: DocumentStatus.draft,
       issueDate: now,
       dueDate: invoice.dueDate,
       subtotal: invoice.subtotal,
@@ -1109,14 +1215,16 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     );
 
     final newItems = items.map(
-      (item) => InvoiceItem(
+      (item) => DocumentLine(
         id: const Uuid().v4(),
-        invoiceId: newId,
+        documentId: newId,
         description: item.description,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         tvaRate: item.tvaRate,
         total: item.total,
+        createdAt: now,
+        updatedAt: now,
         syncStatus: 'pending',
       ),
     );
@@ -1130,13 +1238,13 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     }
   }
 
-  Future<void> _convertToInvoice(Invoice quote) async {
+  Future<void> _convertToInvoice(Document quote) async {
     Logger.ui(
       'InvoiceDetailScreen',
       'CONVERT_TO_INVOICE',
       'quote: ${quote.number}',
     );
-    if (quote.isConverted || quote.status == 'converted') {
+    if (quote.isConverted || quote.status.name == 'converted') {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Ce devis a déjà été converti')),
@@ -1176,7 +1284,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     }
   }
 
-  Future<void> _createAvoir(Invoice invoice) async {
+  Future<void> _createAvoir(Document invoice) async {
     Logger.ui(
       'InvoiceDetailScreen',
       'CREATE_AVOIR',
@@ -1270,7 +1378,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     }
   }
 
-  Future<void> _showPaymentDialog(Invoice invoice) async {
+  Future<void> _showPaymentDialog(Document invoice) async {
     Logger.ui(
       'InvoiceDetailScreen',
       'SHOW_PAYMENT_DIALOG',
@@ -1332,7 +1440,8 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
 
     final paymentRepo = ref.read(paymentRepositoryProvider);
     await paymentRepo.create(
-      invoiceId: invoice.id,
+      companyId: invoice.companyId,
+      documentId: invoice.id,
       amount: amount,
       method: confirmed.method,
       paymentDate: DateTime.now(),
@@ -1340,11 +1449,13 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     );
 
     final newStatus = amount >= invoice.total - 0.01
-        ? 'paid'
-        : 'partially_paid';
+        ? DocumentStatus.paid
+        : DocumentStatus.sent;
     final db = ref.read(databaseProvider);
-    await (db.update(db.invoices)..where((i) => i.id.equals(invoice.id))).write(
-      InvoicesCompanion(
+    await (db.update(
+      db.documents,
+    )..where((i) => i.id.equals(invoice.id))).write(
+      DocumentsCompanion(
         status: Value(newStatus),
         updatedAt: Value(DateTime.now()),
       ),
@@ -1361,7 +1472,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     }
   }
 
-  Future<void> _deleteInvoice(Invoice invoice) async {
+  Future<void> _deleteInvoice(Document invoice) async {
     Logger.ui(
       'InvoiceDetailScreen',
       'DELETE_INVOICE',
@@ -1396,7 +1507,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
 
 class PdfPreviewScreen extends StatefulWidget {
   final pw.Document pdf;
-  final Invoice invoice;
+  final Document invoice;
 
   const PdfPreviewScreen({super.key, required this.pdf, required this.invoice});
 
@@ -1551,7 +1662,7 @@ class _AvoirResult {
 }
 
 class _PaymentDialog extends StatefulWidget {
-  final Invoice invoice;
+  final Document invoice;
   final NumberFormat currencyFormat;
   final TextEditingController amountController;
   final double remaining;

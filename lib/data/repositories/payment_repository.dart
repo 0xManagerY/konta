@@ -1,153 +1,181 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import 'package:konta/data/local/database.dart';
-import 'package:konta/core/utils/logger.dart';
+import 'package:konta/domain/services/log_service.dart';
 import 'package:konta/data/sync/sync_queue_helper.dart';
 
 class PaymentRepository {
   final AppDatabase _db;
   final SyncQueueHelper _syncQueue;
+  final LogService _log = LogService();
 
   PaymentRepository(this._db, this._syncQueue);
 
-  Future<List<Payment>> getAll() async {
-    Logger.method('PaymentRepository', 'getAll');
-    return (_db.select(_db.payments)..orderBy([
-          (p) =>
-              OrderingTerm(expression: p.paymentDate, mode: OrderingMode.desc),
-        ]))
-        .get();
+  Future<List<Payment>> getAll(String companyId) async {
+    _log.debug(
+      LogTags.repo,
+      'getAll - fetching payments',
+      data: {'companyId': companyId},
+    );
+    try {
+      final result = await _db.getPaymentsByCompany(companyId);
+      _log.info(
+        LogTags.repo,
+        'getAll - completed',
+        data: {'count': result.length},
+      );
+      return result;
+    } catch (e, st) {
+      _log.error(LogTags.repo, 'getAll - failed', error: e, stack: st);
+      rethrow;
+    }
   }
 
   Future<Payment?> getById(String id) async {
-    Logger.method('PaymentRepository', 'getById', {'id': id});
-    return (_db.select(
-      _db.payments,
-    )..where((p) => p.id.equals(id))).getSingleOrNull();
+    _log.debug(LogTags.repo, 'getById - fetching payment', data: {'id': id});
+    try {
+      final query = _db.select(_db.payments)..where((p) => p.id.equals(id));
+      final result = await query.getSingleOrNull();
+      final found = result != null;
+      _log.info(LogTags.repo, 'getById - completed', data: {'found': found});
+      return result;
+    } catch (e, st) {
+      _log.error(LogTags.repo, 'getById - failed', error: e, stack: st);
+      rethrow;
+    }
   }
 
-  Future<List<Payment>> getByInvoice(String invoiceId) async {
-    Logger.method('PaymentRepository', 'getByInvoice', {
-      'invoiceId': invoiceId,
-    });
-    return (_db.select(_db.payments)
-          ..where((p) => p.invoiceId.equals(invoiceId))
-          ..orderBy([
-            (p) => OrderingTerm(
-              expression: p.paymentDate,
-              mode: OrderingMode.desc,
-            ),
-          ]))
-        .get();
+  Future<List<Payment>> getByDocument(String documentId) async {
+    _log.debug(
+      LogTags.repo,
+      'getByDocument - fetching payments',
+      data: {'documentId': documentId},
+    );
+    try {
+      final result = await _db.getPaymentsByDocument(documentId);
+      _log.info(
+        LogTags.repo,
+        'getByDocument - completed',
+        data: {'count': result.length},
+      );
+      return result;
+    } catch (e, st) {
+      _log.error(LogTags.repo, 'getByDocument - failed', error: e, stack: st);
+      rethrow;
+    }
   }
 
   Future<String> create({
-    required String invoiceId,
+    required String companyId,
+    required String documentId,
     required double amount,
     required String method,
     required DateTime paymentDate,
     DateTime? checkDueDate,
     String? notes,
   }) async {
-    Logger.method('PaymentRepository', 'create', {
-      'invoiceId': invoiceId,
-      'amount': amount,
-      'method': method,
-    });
-    final id = const Uuid().v4();
-    final now = DateTime.now();
+    _log.debug(
+      LogTags.repo,
+      'create - starting',
+      data: {
+        'companyId': companyId,
+        'documentId': documentId,
+        'amount': amount,
+        'method': method,
+      },
+    );
+    try {
+      final id = const Uuid().v4();
+      final now = DateTime.now();
 
-    Logger.db('INSERT', 'payments', {
-      'id': id,
-      'invoiceId': invoiceId,
-      'amount': amount,
-    });
-    await _db
-        .into(_db.payments)
-        .insert(
-          PaymentsCompanion(
-            id: Value(id),
-            invoiceId: Value(invoiceId),
-            amount: Value(amount),
-            method: Value(method),
-            paymentDate: Value(paymentDate),
-            checkDueDate: Value(checkDueDate),
-            notes: Value(notes),
-            createdAt: Value(now),
-            syncStatus: const Value('pending'),
-          ),
-        );
+      await _db
+          .into(_db.payments)
+          .insert(
+            Payment(
+              id: id,
+              companyId: companyId,
+              documentId: documentId,
+              amount: amount,
+              method: method,
+              paymentDate: paymentDate,
+              checkDueDate: checkDueDate,
+              notes: notes,
+              createdAt: now,
+              syncStatus: 'pending',
+            ),
+          );
 
-    await _syncQueue.queueInsert('payments', id);
-    Logger.success('Payment created: $id', tag: 'REPO');
-    return id;
+      await _syncQueue.queueInsert('payments', id);
+      _log.info(LogTags.repo, 'create - completed', data: {'id': id});
+      return id;
+    } catch (e, st) {
+      _log.error(LogTags.repo, 'create - failed', error: e, stack: st);
+      rethrow;
+    }
   }
 
   Future<void> update(Payment payment) async {
-    Logger.method('PaymentRepository', 'update', {'id': payment.id});
-    Logger.db('UPDATE', 'payments', {'id': payment.id});
-    await (_db.update(
-      _db.payments,
-    )..where((p) => p.id.equals(payment.id))).write(
-      PaymentsCompanion(
-        amount: Value(payment.amount),
-        method: Value(payment.method),
-        paymentDate: Value(payment.paymentDate),
-        checkDueDate: Value(payment.checkDueDate),
-        notes: Value(payment.notes),
-        syncStatus: const Value('pending'),
-      ),
-    );
-    await _syncQueue.queueUpdate('payments', payment.id);
-    Logger.success('Payment updated', tag: 'REPO');
+    _log.debug(LogTags.repo, 'update - starting', data: {'id': payment.id});
+    try {
+      await (_db.update(
+        _db.payments,
+      )..where((p) => p.id.equals(payment.id))).write(
+        PaymentsCompanion(
+          amount: Value(payment.amount),
+          method: Value(payment.method),
+          paymentDate: Value(payment.paymentDate),
+          checkDueDate: Value(payment.checkDueDate),
+          notes: Value(payment.notes),
+          syncStatus: const Value('pending'),
+        ),
+      );
+      await _syncQueue.queueUpdate('payments', payment.id);
+      _log.info(LogTags.repo, 'update - completed', data: {'id': payment.id});
+    } catch (e, st) {
+      _log.error(
+        LogTags.repo,
+        'update - failed',
+        error: e,
+        stack: st,
+        data: {'id': payment.id},
+      );
+      rethrow;
+    }
   }
 
   Future<void> delete(String id) async {
-    Logger.method('PaymentRepository', 'delete', {'id': id});
-    Logger.db('DELETE', 'payments', {'id': id});
-    await _syncQueue.queueDelete('payments', id);
-    await (_db.delete(_db.payments)..where((p) => p.id.equals(id))).go();
-    Logger.success('Payment deleted', tag: 'REPO');
+    _log.debug(LogTags.repo, 'delete - starting', data: {'id': id});
+    try {
+      await _syncQueue.queueDelete('payments', id);
+      await (_db.delete(_db.payments)..where((p) => p.id.equals(id))).go();
+      _log.info(LogTags.repo, 'delete - completed', data: {'id': id});
+    } catch (e, st) {
+      _log.error(
+        LogTags.repo,
+        'delete - failed',
+        error: e,
+        stack: st,
+        data: {'id': id},
+      );
+      rethrow;
+    }
   }
 
-  Future<double> getTotalPaidForInvoice(String invoiceId) async {
-    final payments = await getByInvoice(invoiceId);
-    final total = payments.fold<double>(0.0, (sum, p) => sum + p.amount);
-    Logger.debug('Total paid for invoice $invoiceId: $total', tag: 'REPO');
-    return total;
+  Future<double> getTotalPaidForDocument(String documentId) async {
+    return _db.getTotalPaidForDocument(documentId);
   }
 
-  Future<List<Payment>> getCheckReminders() async {
-    Logger.method('PaymentRepository', 'getCheckReminders');
-    final now = DateTime.now();
-    return (_db.select(_db.payments)
-          ..where(
-            (p) =>
-                p.method.equals('check') &
-                p.checkDueDate.isNotNull() &
-                p.checkDueDate.isBiggerOrEqualValue(now),
-          )
-          ..orderBy([(p) => OrderingTerm(expression: p.checkDueDate)]))
-        .get();
+  Future<List<Payment>> getPendingChecks() async {
+    return _db.getPendingChecks();
   }
 
   Future<List<Payment>> getOverdueChecks() async {
-    Logger.method('PaymentRepository', 'getOverdueChecks');
-    final now = DateTime.now();
-    return (_db.select(_db.payments)
-          ..where(
-            (p) =>
-                p.method.equals('check') &
-                p.checkDueDate.isNotNull() &
-                p.checkDueDate.isSmallerThanValue(now),
-          )
-          ..orderBy([(p) => OrderingTerm(expression: p.checkDueDate)]))
-        .get();
+    return _db.getOverdueChecks();
   }
 
   Future<String> generateId() async {
     final id = const Uuid().v4();
-    Logger.debug('Generated ID: $id', tag: 'REPO');
+    _log.debug(LogTags.repo, 'generateId - generated', data: {'id': id});
     return id;
   }
 }

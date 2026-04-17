@@ -22,7 +22,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   final _descriptionController = TextEditingController();
 
   bool _isLoading = false;
-  Product? _existingProduct;
+  Item? _existingProduct;
 
   @override
   void initState() {
@@ -76,8 +76,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       final now = DateTime.now();
 
       if (_existingProduct == null) {
-        final product = ProductsCompanion(
-          userId: Value(userId),
+        final product = ItemsCompanion(
+          companyId: Value(userId),
           name: Value(_nameController.text.trim()),
           description: Value(
             _descriptionController.text.trim().isEmpty
@@ -92,13 +92,15 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         Logger.ui('ProductFormScreen', 'INSERT_PRODUCT');
         await repo.insert(product);
       } else {
-        final product = Product(
+        final product = Item(
           id: _existingProduct!.id,
-          userId: userId,
+          companyId: userId,
           name: _nameController.text.trim(),
           description: _descriptionController.text.trim().isEmpty
               ? null
               : _descriptionController.text.trim(),
+          defaultUnitPrice: _existingProduct!.defaultUnitPrice,
+          isActive: _existingProduct!.isActive,
           createdAt: _existingProduct!.createdAt,
           updatedAt: now,
           syncStatus: 'pending',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:konta/core/utils/logger.dart';
+import 'package:konta/data/remote/supabase_service.dart';
 import 'package:konta/presentation/providers/payment_provider.dart';
 
 class PaymentFormDialog extends ConsumerStatefulWidget {
@@ -222,8 +223,11 @@ class _PaymentFormDialogState extends ConsumerState<PaymentFormDialog> {
 
     try {
       final repo = ref.read(paymentRepositoryProvider);
+      final userId = SupabaseService.currentUserId;
+      if (userId == null) throw Exception('User not authenticated');
       await repo.create(
-        invoiceId: widget.invoiceId,
+        companyId: userId,
+        documentId: widget.invoiceId,
         amount: double.parse(_amountController.text),
         method: _selectedMethod,
         paymentDate: _paymentDate,

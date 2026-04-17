@@ -1,19 +1,24 @@
 import 'package:konta/config/env.dart';
-import 'package:konta/core/utils/logger.dart';
+import 'package:konta/domain/services/log_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupabaseService {
   static SupabaseClient? _client;
   static bool _initialized = false;
+  static final LogService _log = LogService();
 
   static Future<void> initialize() async {
     if (_initialized) {
-      Logger.warning('Supabase already initialized', tag: 'SUPABASE');
+      _log.warn(LogTags.supabase, 'initialize - already initialized');
       return;
     }
 
-    Logger.info('Initializing Supabase', tag: 'SUPABASE');
-    Logger.network('CONNECT', EnvConfig.supabaseUrl);
+    _log.info(LogTags.supabase, 'initialize - starting');
+    _log.debug(
+      LogTags.supabase,
+      'initialize - connecting',
+      data: {'url': EnvConfig.supabaseUrl},
+    );
 
     await Supabase.initialize(
       url: EnvConfig.supabaseUrl,
@@ -23,12 +28,12 @@ class SupabaseService {
 
     _client = Supabase.instance.client;
     _initialized = true;
-    Logger.success('Supabase initialized', tag: 'SUPABASE');
+    _log.info(LogTags.supabase, 'initialize - completed');
   }
 
   static SupabaseClient get client {
     if (!_initialized || _client == null) {
-      Logger.error('Supabase not initialized', tag: 'SUPABASE');
+      _log.error(LogTags.supabase, 'client getter - not initialized');
       throw StateError('Supabase not initialized. Call initialize() first.');
     }
     return _client!;
@@ -41,55 +46,67 @@ class SupabaseService {
   static bool get isAuthenticated => auth.currentUser != null;
 
   static Future<void> signIn(String email, String password) async {
-    Logger.method('SupabaseService', 'signIn', {'email': email});
+    _log.debug(LogTags.auth, 'signIn - starting', data: {'email': email});
     try {
       await auth.signInWithPassword(email: email, password: password);
-      Logger.auth('SIGN_IN_SUCCESS', currentUserId);
+      _log.info(
+        LogTags.auth,
+        'signIn - success',
+        data: {'userId': currentUserId},
+      );
     } catch (e, st) {
-      Logger.error('Sign in failed', tag: 'SUPABASE', error: e, stackTrace: st);
+      _log.error(
+        LogTags.auth,
+        'signIn - failed',
+        error: e,
+        stack: st,
+        data: {'email': email},
+      );
       rethrow;
     }
   }
 
   static Future<void> signUp(String email, String password) async {
-    Logger.method('SupabaseService', 'signUp', {'email': email});
+    _log.debug(LogTags.auth, 'signUp - starting', data: {'email': email});
     try {
       final response = await auth.signUp(email: email, password: password);
-      Logger.auth('SIGN_UP_SUCCESS', response.user?.id);
+      _log.info(
+        LogTags.auth,
+        'signUp - success',
+        data: {'userId': response.user?.id},
+      );
     } catch (e, st) {
-      Logger.error('Sign up failed', tag: 'SUPABASE', error: e, stackTrace: st);
+      _log.error(LogTags.auth, 'signUp - failed', error: e, stack: st);
       rethrow;
     }
   }
 
   static Future<void> signOut() async {
-    Logger.method('SupabaseService', 'signOut');
+    _log.debug(LogTags.auth, 'signOut - starting');
     try {
       await auth.signOut();
-      Logger.auth('SIGN_OUT_SUCCESS');
+      _log.info(LogTags.auth, 'signOut - success');
     } catch (e, st) {
-      Logger.error(
-        'Sign out failed',
-        tag: 'SUPABASE',
-        error: e,
-        stackTrace: st,
-      );
+      _log.error(LogTags.auth, 'signOut - failed', error: e, stack: st);
       rethrow;
     }
   }
 
   static Future<void> resetPassword(String email) async {
-    Logger.method('SupabaseService', 'resetPassword', {'email': email});
+    _log.debug(
+      LogTags.auth,
+      'resetPassword - starting',
+      data: {'email': email},
+    );
     try {
       await auth.resetPasswordForEmail(email);
-      Logger.auth('PASSWORD_RESET_SENT', email);
-    } catch (e, st) {
-      Logger.error(
-        'Password reset failed',
-        tag: 'SUPABASE',
-        error: e,
-        stackTrace: st,
+      _log.info(
+        LogTags.auth,
+        'resetPassword - email sent',
+        data: {'email': email},
       );
+    } catch (e, st) {
+      _log.error(LogTags.auth, 'resetPassword - failed', error: e, stack: st);
       rethrow;
     }
   }

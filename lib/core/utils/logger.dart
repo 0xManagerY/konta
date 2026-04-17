@@ -25,10 +25,14 @@ class Logger {
       stackTrace: stackTrace,
     );
 
-    print(fullMessage);
+    developer.log(fullMessage, time: DateTime.now(), level: level.index * 100);
 
     if (error != null) {
-      print('$fullMessage - Error: $error');
+      developer.log(
+        '$fullMessage - Error: $error',
+        time: DateTime.now(),
+        level: level.index * 100,
+      );
     }
   }
 

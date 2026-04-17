@@ -1,11 +1,12 @@
 import 'dart:io';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:konta/core/utils/logger.dart';
+import 'package:konta/domain/services/log_service.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 class StorageService {
+  static final _log = LogService();
   static const String _bucketName = 'receipts';
   static const int _maxFileSize = 5 * 1024 * 1024;
 
@@ -14,13 +15,13 @@ class StorageService {
     required String userId,
   }) async {
     if (!SupabaseService.isAuthenticated) {
-      Logger.warning('User not authenticated', tag: 'STORAGE');
+      _log.warn('Service', 'User not authenticated');
       return null;
     }
 
     final file = File(localPath);
     if (!await file.exists()) {
-      Logger.error('File not found: $localPath', tag: 'STORAGE');
+      _log.error('Service', 'File not found: $localPath');
       return null;
     }
 
@@ -28,7 +29,7 @@ class StorageService {
     final fileSize = await file.length();
 
     if (fileSize > _maxFileSize) {
-      Logger.info('Compressing image: ${fileSize}b', tag: 'STORAGE');
+      _log.info('Service', 'Compressing image: ${fileSize}b');
       final compressed = await _compressImage(localPath);
       if (compressed == null) return null;
       fileToUpload = compressed;
@@ -52,19 +53,11 @@ class StorageService {
 
       if (result != null) {
         final compressedFile = File(result.path);
-        Logger.success(
-          'Compressed: ${await compressedFile.length()}b',
-          tag: 'STORAGE',
-        );
+        _log.info('Service', 'Compressed: ${await compressedFile.length()}b');
         return compressedFile;
       }
     } catch (e, st) {
-      Logger.error(
-        'Compression failed',
-        tag: 'STORAGE',
-        error: e,
-        stackTrace: st,
-      );
+      _log.error('Service', 'Compression failed', error: e, stack: st);
     }
     return null;
   }
@@ -74,7 +67,7 @@ class StorageService {
     final storagePath = '$userId/$fileName';
 
     try {
-      Logger.network('UPLOAD', 'receipts/$storagePath');
+      _log.info('Service', 'UPLOAD receipts/$storagePath');
 
       await SupabaseService.client.storage
           .from(_bucketName)
@@ -84,10 +77,10 @@ class StorageService {
           .from(_bucketName)
           .getPublicUrl(storagePath);
 
-      Logger.success('Uploaded: $publicUrl', tag: 'STORAGE');
+      _log.info('Service', 'Uploaded: $publicUrl');
       return publicUrl;
     } catch (e, st) {
-      Logger.error('Upload failed', tag: 'STORAGE', error: e, stackTrace: st);
+      _log.error('Service', 'Upload failed', error: e, stack: st);
       return null;
     }
   }
@@ -101,11 +94,11 @@ class StorageService {
 
       final localFile = File(localPath);
       if (await localFile.exists()) {
-        Logger.info('Receipt cached: $localPath', tag: 'STORAGE');
+        _log.info('Service', 'Receipt cached: $localPath');
         return localFile;
       }
 
-      Logger.network('DOWNLOAD', url);
+      _log.info('Service', 'DOWNLOAD $url');
 
       final response = await SupabaseService.client.storage
           .from(_bucketName)
@@ -114,10 +107,10 @@ class StorageService {
       await localFile.parent.create(recursive: true);
       await localFile.writeAsBytes(response);
 
-      Logger.success('Downloaded: $localPath', tag: 'STORAGE');
+      _log.info('Service', 'Downloaded: $localPath');
       return localFile;
     } catch (e, st) {
-      Logger.error('Download failed', tag: 'STORAGE', error: e, stackTrace: st);
+      _log.error('Service', 'Download failed', error: e, stack: st);
       return null;
     }
   }
@@ -129,15 +122,15 @@ class StorageService {
       final uri = Uri.parse(url);
       final storagePath = uri.pathSegments.skip(1).join('/');
 
-      Logger.network('DELETE', 'receipts/$storagePath');
+      _log.info('Service', 'DELETE receipts/$storagePath');
 
       await SupabaseService.client.storage.from(_bucketName).remove([
         storagePath,
       ]);
 
-      Logger.success('Deleted: $storagePath', tag: 'STORAGE');
+      _log.info('Service', 'Deleted: $storagePath');
     } catch (e, st) {
-      Logger.error('Delete failed', tag: 'STORAGE', error: e, stackTrace: st);
+      _log.error('Service', 'Delete failed', error: e, stack: st);
     }
   }
 

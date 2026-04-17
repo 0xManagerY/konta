@@ -1,23 +1,40 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:excel/excel.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:http/http.dart' as http;
 import 'package:konta/data/local/database.dart';
+import 'package:konta/data/local/tables/tables.dart';
 import 'package:konta/domain/services/pdf_service.dart';
 import 'package:konta/data/repositories/invoice_repository.dart';
 import 'package:konta/data/repositories/expense_repository.dart';
 import 'package:konta/data/repositories/customer_repository.dart';
+import 'package:konta/data/repositories/company_repository.dart';
+import 'package:konta/data/repositories/invoice_template_repository.dart';
+import 'package:konta/data/sync/sync_queue_helper.dart';
+import 'package:konta/data/remote/supabase_service.dart';
 import 'package:konta/core/utils/logger.dart';
 
 class ExportService {
   final InvoiceRepository _invoiceRepo;
   final ExpenseRepository _expenseRepo;
   final CustomerRepository _customerRepo;
+  final CompanyRepository _companyRepo;
+  final AppDatabase _db;
+  final SyncQueueHelper _syncQueue;
 
-  ExportService(this._invoiceRepo, this._expenseRepo, this._customerRepo);
+  ExportService(
+    this._invoiceRepo,
+    this._expenseRepo,
+    this._customerRepo,
+    this._companyRepo,
+    this._db,
+    this._syncQueue,
+  );
 
   Future<String> exportMonthlyBundle({
-    required Profile company,
+    required UserProfile profile,
     required int year,
     required int month,
   }) async {
@@ -36,7 +53,10 @@ class ExportService {
     exportDir.createSync(recursive: true);
     Logger.debug('Created export directory: ${exportDir.path}', tag: 'EXPORT');
 
-    final invoices = await _invoiceRepo.getByType(company.id, 'invoice');
+    final invoices = await _invoiceRepo.getByType(
+      profile.id,
+      DocumentType.invoice,
+    );
     final monthInvoices = invoices.where((i) {
       final isSameYear = i.issueDate.year == year;
       final isSameMonth = i.issueDate.month == month;
@@ -47,7 +67,7 @@ class ExportService {
       tag: 'EXPORT',
     );
 
-    final expenses = await _expenseRepo.getByMonth(company.id, year, month);
+    final expenses = await _expenseRepo.getByMonth(profile.id, year, month);
     Logger.debug(
       'Found ${expenses.length} expenses for $year-$month',
       tag: 'EXPORT',
@@ -55,7 +75,7 @@ class ExportService {
 
     Logger.ui('ExportService', 'CREATE_SALES_EXCEL');
     final salesExcel = await _createSalesExcel(
-      company: company,
+      company: profile,
       invoices: monthInvoices,
     );
     final salesFile = File(
@@ -76,8 +96,42 @@ class ExportService {
     );
 
     Logger.ui('ExportService', 'GENERATE_PDFS');
+    Company? companyData;
+    if (profile.defaultCompanyId != null) {
+      companyData = await _companyRepo.getById(profile.defaultCompanyId!);
+    }
+
+    InvoiceTemplate? template;
+    Uint8List? logoBytes;
+    try {
+      final templateRepo = InvoiceTemplateRepository(_db, _syncQueue);
+      if (companyData != null) {
+        template = await templateRepo.getCompanyDefaultTemplate(companyData.id);
+        if (template != null &&
+            template.headerStyle != HeaderStyle.noLogo &&
+            companyData.logoUrl != null &&
+            companyData.logoUrl!.isNotEmpty) {
+          final uri = Uri.parse(companyData.logoUrl!);
+          if (uri.host.contains('supabase')) {
+            final pathSegments = uri.pathSegments;
+            if (pathSegments.length >= 2) {
+              final bucketAndPath = pathSegments.sublist(1).join('/');
+              logoBytes = await SupabaseService.client.storage
+                  .from(pathSegments[0])
+                  .download(bucketAndPath);
+            }
+          } else {
+            final response = await http.get(uri);
+            logoBytes = response.bodyBytes;
+          }
+        }
+      }
+    } catch (e) {
+      // Template fetch failed - continue with defaults
+    }
+
     for (final invoice in monthInvoices) {
-      final customer = await _customerRepo.getById(invoice.customerId);
+      final customer = await _customerRepo.getById(invoice.contactId);
       if (customer == null) {
         Logger.warning(
           'Customer not found for invoice: ${invoice.id}',
@@ -85,13 +139,23 @@ class ExportService {
         );
         continue;
       }
+      if (companyData == null) {
+        Logger.warning(
+          'Company not found for profile: ${profile.id}',
+          tag: 'EXPORT',
+        );
+        continue;
+      }
       final items = await _invoiceRepo.getItems(invoice.id);
       final pdf = await PdfService.generateInvoicePdf(
-        company: company,
+        company: companyData,
+        userEmail: profile.email,
         customer: customer,
         invoice: invoice,
         items: items,
         languageCode: 'fr',
+        template: template,
+        logoBytes: logoBytes,
       );
       final pdfBytes = await pdf.save();
       final pdfFile = File('${exportDir.path}/${invoice.number}.pdf');
@@ -116,8 +180,8 @@ class ExportService {
   }
 
   Future<List<int>> _createSalesExcel({
-    required Profile company,
-    required List<Invoice> invoices,
+    required UserProfile company,
+    required List<Document> invoices,
   }) async {
     final excel = Excel.createExcel();
     final sheet = excel['Ventes'];
@@ -138,7 +202,7 @@ class ExportService {
 
     for (var i = 0; i < invoices.length; i++) {
       final invoice = invoices[i];
-      final customer = await _customerRepo.getById(invoice.customerId);
+      final customer = await _customerRepo.getById(invoice.contactId);
       final row = i + 2;
 
       sheet.cell(CellIndex.indexByString('A$row')).value = TextCellValue(

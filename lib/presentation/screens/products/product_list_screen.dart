@@ -87,7 +87,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
     );
   }
 
-  Widget _buildProductCard(Product product) {
+  Widget _buildProductCard(Item product) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: ListTile(
@@ -113,7 +113,7 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
     );
   }
 
-  List<Product> _filterProducts(List<Product> products) {
+  List<Item> _filterProducts(List<Item> products) {
     if (_searchController.text.isEmpty) {
       return products;
     }

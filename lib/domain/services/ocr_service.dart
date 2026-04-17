@@ -1,10 +1,11 @@
 import 'dart:io';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:konta/core/utils/logger.dart';
+import 'package:konta/domain/services/log_service.dart';
 import 'package:path_provider/path_provider.dart';
 
 class OcrService {
+  static final _log = LogService();
   static final OcrService _instance = OcrService._internal();
   static OcrService get instance => _instance;
 
@@ -13,31 +14,31 @@ class OcrService {
   late final TextRecognizer _textRecognizer = TextRecognizer();
 
   Future<OcrResult> processReceipt(String imagePath) async {
-    Logger.info('processReceipt started for: $imagePath', tag: 'OCR');
+    _log.info('Service', 'processReceipt started for: $imagePath');
     try {
-      Logger.info('Compressing image', tag: 'OCR');
+      _log.info('Service', 'Compressing image');
       final compressedPath = await _compressImage(imagePath);
-      Logger.info('Image compressed to: $compressedPath', tag: 'OCR');
+      _log.info('Service', 'Image compressed to: $compressedPath');
 
-      Logger.info('Creating InputImage from file path', tag: 'OCR');
+      _log.info('Service', 'Creating InputImage from file path');
       final inputImage = InputImage.fromFilePath(compressedPath);
-      Logger.info(
+      _log.info(
+        'Service',
         'InputImage created, processing with TextRecognizer',
-        tag: 'OCR',
       );
       final recognizedText = await _textRecognizer.processImage(inputImage);
-      Logger.info('TextRecognizer completed', tag: 'OCR');
+      _log.info('Service', 'TextRecognizer completed');
 
       final text = recognizedText.text;
-      Logger.info('Recognized text length: ${text.length}', tag: 'OCR');
+      _log.info('Service', 'Recognized text length: ${text.length}');
 
       final amounts = _extractAmounts(text);
       final date = _extractDate(text);
       final merchantName = _extractMerchantName(text);
 
-      Logger.info(
+      _log.info(
+        'Service',
         'Extracted - amounts: $amounts, date: $date, merchant: $merchantName',
-        tag: 'OCR',
       );
 
       return OcrResult(
@@ -50,11 +51,11 @@ class OcrService {
         compressedImagePath: compressedPath,
       );
     } catch (e, stackTrace) {
-      Logger.error(
+      _log.error(
+        'Service',
         'processReceipt error',
-        tag: 'OCR',
         error: e,
-        stackTrace: stackTrace,
+        stack: stackTrace,
       );
       return OcrResult(success: false, error: e.toString());
     }
@@ -76,13 +77,13 @@ class OcrService {
       );
 
       if (result == null) {
-        Logger.warning('Compression failed, using original', tag: 'OCR');
+        _log.warn('Service', 'Compression failed, using original');
         return imagePath;
       }
 
       return result.path;
     } catch (e) {
-      Logger.warning('Compression error: $e, using original', tag: 'OCR');
+      _log.warn('Service', 'Compression error: $e, using original');
       return imagePath;
     }
   }

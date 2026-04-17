@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 import 'package:konta/domain/services/ocr_service.dart';
+import 'package:konta/presentation/providers/database_provider.dart';
 import 'package:konta/presentation/providers/expense_provider.dart';
 import 'package:konta/core/utils/logger.dart';
 
@@ -361,9 +362,25 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     setState(() => _isLoading = true);
 
     try {
+      final db = ref.read(databaseProvider);
+      final profile = await (db.select(
+        db.userProfiles,
+      )..where((p) => p.id.equals(userId))).getSingleOrNull();
+
+      if (profile?.defaultCompanyId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Entreprise non configurée')),
+          );
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final companyId = profile!.defaultCompanyId!;
       final repo = ref.read(expenseRepositoryProvider);
       await repo.create(
-        userId: userId,
+        companyId: companyId,
         category: _selectedCategory,
         amount: double.parse(_amountController.text),
         date: _selectedDate,

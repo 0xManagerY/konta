@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -5,16 +6,25 @@ import 'package:intl/intl.dart';
 import 'package:konta/core/utils/logger.dart';
 import 'package:konta/data/local/database.dart';
 import 'package:konta/data/remote/supabase_service.dart';
-import 'package:konta/data/repositories/profile_repository.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
 
-final _profileProvider = StreamProvider<Profile?>((ref) {
+final _profileProvider = StreamProvider<UserProfile?>((ref) {
   final db = ref.watch(databaseProvider);
   final userId = SupabaseService.currentUserId;
   if (userId == null) return Stream.value(null);
   return (db.select(
-    db.profiles,
+    db.userProfiles,
   )..where((p) => p.id.equals(userId))).watchSingleOrNull();
+});
+
+final _companyProvider = StreamProvider.family<Company?, String>((
+  ref,
+  companyId,
+) {
+  final db = ref.watch(databaseProvider);
+  return (db.select(
+    db.companies,
+  )..where((c) => c.id.equals(companyId))).watchSingleOrNull();
 });
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -67,53 +77,87 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     Logger.ui('ProfileScreen', 'BUILD');
     final profileAsync = ref.watch(_profileProvider);
 
+    return profileAsync.when(
+      data: (profile) {
+        if (profile == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Profil entreprise')),
+            body: const Center(child: Text('Profil non trouvé')),
+          );
+        }
+        final companyAsync = ref.watch(
+          _companyProvider(profile.defaultCompanyId ?? ''),
+        );
+        return companyAsync.when(
+          data: (company) => _buildScaffold(profile, company),
+          loading: () => Scaffold(
+            appBar: AppBar(title: const Text('Profil entreprise')),
+            body: const Center(child: CircularProgressIndicator()),
+          ),
+          error: (error, stack) => Scaffold(
+            appBar: AppBar(title: const Text('Profil entreprise')),
+            body: Center(child: Text('Erreur: $error')),
+          ),
+        );
+      },
+      loading: () => Scaffold(
+        appBar: AppBar(title: const Text('Profil entreprise')),
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stack) => Scaffold(
+        appBar: AppBar(title: const Text('Profil entreprise')),
+        body: Center(child: Text('Erreur: $error')),
+      ),
+    );
+  }
+
+  Widget _buildScaffold(UserProfile profile, Company? company) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profil entreprise'),
         actions: [
-          if (!_isEditing)
+          if (!_isEditing && company != null)
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: () {
                 Logger.ui('ProfileScreen', 'EDIT_BUTTON_TAP');
-                final profile = profileAsync.valueOrNull;
-                if (profile != null) {
-                  _companyNameController.text = profile.companyName;
-                  _iceController.text = profile.ice ?? '';
-                  _ifController.text = profile.ifNumber ?? '';
-                  _rcController.text = profile.rc ?? '';
-                  _cnssController.text = profile.cnss ?? '';
-                  _addressController.text = profile.address ?? '';
-                  _phoneController.text = profile.phone ?? '';
-                  _legalStatusController.text = profile.legalStatus;
-                  _isAutoEntrepreneur = profile.isAutoEntrepreneur;
-                }
+                _companyNameController.text = company.name;
+                _iceController.text = company.ice ?? '';
+                _ifController.text = company.ifNumber ?? '';
+                _rcController.text = company.rc ?? '';
+                _cnssController.text = company.cnss ?? '';
+                _addressController.text = company.address ?? '';
+                _phoneController.text = company.phone ?? '';
+                _legalStatusController.text = company.legalStatus;
+                _isAutoEntrepreneur = company.isAutoEntrepreneur;
                 setState(() => _isEditing = true);
               },
             ),
         ],
       ),
-      body: profileAsync.when(
-        data: (profile) {
-          if (profile == null) {
-            return const Center(child: Text('Profil non trouvé'));
-          }
-          return _buildContent(profile);
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('Erreur: $error')),
-      ),
+      body: _buildContent(profile, company),
     );
   }
 
-  Widget _buildContent(Profile profile) {
+  Widget _buildContent(UserProfile profile, Company? company) {
     if (!_isEditing) {
-      return _buildViewMode(profile);
+      return _buildViewMode(profile, company);
     }
-    return _buildEditMode(profile);
+    return _buildEditMode(profile, company);
   }
 
-  Widget _buildViewMode(Profile profile) {
+  Widget _buildViewMode(UserProfile profile, Company? company) {
+    final companyName = company?.name ?? '';
+    final legalStatus = company?.legalStatus ?? '';
+    final ice = company?.ice;
+    final ifNumber = company?.ifNumber;
+    final rc = company?.rc;
+    final cnss = company?.cnss;
+    final address = company?.address;
+    final phone = company?.phone;
+    final logoUrl = company?.logoUrl;
+    final isAutoEntrepreneur = company?.isAutoEntrepreneur ?? false;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -127,10 +171,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   backgroundColor: const Color(
                     0xFF2563EB,
                   ).withValues(alpha: 0.1),
-                  child: profile.logoUrl != null && profile.logoUrl!.isNotEmpty
+                  child: logoUrl != null && logoUrl.isNotEmpty
                       ? ClipOval(
                           child: Image.network(
-                            profile.logoUrl!,
+                            logoUrl,
                             width: 96,
                             height: 96,
                             fit: BoxFit.cover,
@@ -149,13 +193,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  profile.companyName.isNotEmpty
-                      ? profile.companyName
+                  companyName.isNotEmpty
+                      ? companyName
                       : 'Entreprise non configurée',
                   style: Theme.of(context).textTheme.titleLarge,
                   textAlign: TextAlign.center,
                 ),
-                if (profile.isAutoEntrepreneur)
+                if (isAutoEntrepreneur)
                   Chip(
                     label: const Text('Auto-entrepreneur'),
                     backgroundColor: Colors.green.shade100,
@@ -176,15 +220,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 16),
-                  _buildInfoTile('Statut juridique', profile.legalStatus),
-                  if (profile.ice != null && profile.ice!.isNotEmpty)
-                    _buildInfoTile('ICE', profile.ice!),
-                  if (profile.ifNumber != null && profile.ifNumber!.isNotEmpty)
-                    _buildInfoTile('Identifiant fiscal', profile.ifNumber!),
-                  if (profile.rc != null && profile.rc!.isNotEmpty)
-                    _buildInfoTile('RC', profile.rc!),
-                  if (profile.cnss != null && profile.cnss!.isNotEmpty)
-                    _buildInfoTile('CNSS', profile.cnss!),
+                  _buildInfoTile('Statut juridique', legalStatus),
+                  if (ice != null && ice.isNotEmpty) _buildInfoTile('ICE', ice),
+                  if (ifNumber != null && ifNumber.isNotEmpty)
+                    _buildInfoTile('Identifiant fiscal', ifNumber),
+                  if (rc != null && rc.isNotEmpty) _buildInfoTile('RC', rc),
+                  if (cnss != null && cnss.isNotEmpty)
+                    _buildInfoTile('CNSS', cnss),
                 ],
               ),
             ),
@@ -201,18 +243,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 16),
-                  if (profile.address != null && profile.address!.isNotEmpty)
-                    _buildInfoTile(
-                      'Adresse',
-                      profile.address!,
-                      icon: Icons.location_on,
-                    ),
-                  if (profile.phone != null && profile.phone!.isNotEmpty)
-                    _buildInfoTile(
-                      'Téléphone',
-                      profile.phone!,
-                      icon: Icons.phone,
-                    ),
+                  if (address != null && address.isNotEmpty)
+                    _buildInfoTile('Adresse', address, icon: Icons.location_on),
+                  if (phone != null && phone.isNotEmpty)
+                    _buildInfoTile('Téléphone', phone, icon: Icons.phone),
                   _buildInfoTile('Email', profile.email, icon: Icons.email),
                 ],
               ),
@@ -273,7 +307,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _buildEditMode(Profile profile) {
+  Widget _buildEditMode(UserProfile profile, Company? company) {
     return Form(
       key: _formKey,
       child: ListView(
@@ -325,7 +359,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _legalStatusController.text.isNotEmpty
+            initialValue: _legalStatusController.text.isNotEmpty
                 ? _legalStatusController.text
                 : 'SARL',
             decoration: const InputDecoration(
@@ -432,7 +466,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(width: 16),
               Expanded(
                 child: FilledButton(
-                  onPressed: _isLoading ? null : () => _saveProfile(profile),
+                  onPressed: _isLoading
+                      ? null
+                      : () => _saveProfile(profile, company),
                   child: _isLoading
                       ? const SizedBox(
                           height: 20,
@@ -461,48 +497,68 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       maxWidth: 512,
       maxHeight: 512,
     );
-    if (image != null) {
+    if (image != null && mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Logo sélectionné')));
     }
   }
 
-  Future<void> _saveProfile(Profile profile) async {
+  Future<void> _saveProfile(UserProfile profile, Company? company) async {
     Logger.ui(
       'ProfileScreen',
       'SAVE_PROFILE',
       'company: ${_companyNameController.text}',
     );
     if (!_formKey.currentState!.validate()) return;
+    if (company == null) return;
 
     setState(() => _isLoading = true);
 
     try {
       final db = ref.read(databaseProvider);
-      final repo = ProfileRepository(db);
 
-      final updatedProfile = Profile(
-        id: profile.id,
-        email: profile.email,
-        companyName: _companyNameController.text,
-        legalStatus: _legalStatusController.text,
-        ice: _iceController.text.isNotEmpty ? _iceController.text : null,
-        ifNumber: _ifController.text.isNotEmpty ? _ifController.text : null,
-        rc: _rcController.text.isNotEmpty ? _rcController.text : null,
-        cnss: _cnssController.text.isNotEmpty ? _cnssController.text : null,
-        address: _addressController.text.isNotEmpty
-            ? _addressController.text
-            : null,
-        phone: _phoneController.text.isNotEmpty ? _phoneController.text : null,
-        logoUrl: profile.logoUrl,
-        isAutoEntrepreneur: _isAutoEntrepreneur,
-        createdAt: profile.createdAt,
-        updatedAt: DateTime.now(),
-        syncStatus: 'pending',
+      await (db.update(
+        db.companies,
+      )..where((c) => c.id.equals(company.id))).write(
+        CompaniesCompanion(
+          name: Value(_companyNameController.text.trim()),
+          legalStatus: Value(_legalStatusController.text.trim()),
+          ice: Value(
+            _iceController.text.trim().isNotEmpty
+                ? _iceController.text.trim()
+                : null,
+          ),
+          ifNumber: Value(
+            _ifController.text.trim().isNotEmpty
+                ? _ifController.text.trim()
+                : null,
+          ),
+          rc: Value(
+            _rcController.text.trim().isNotEmpty
+                ? _rcController.text.trim()
+                : null,
+          ),
+          cnss: Value(
+            _cnssController.text.trim().isNotEmpty
+                ? _cnssController.text.trim()
+                : null,
+          ),
+          address: Value(
+            _addressController.text.trim().isNotEmpty
+                ? _addressController.text.trim()
+                : null,
+          ),
+          phone: Value(
+            _phoneController.text.trim().isNotEmpty
+                ? _phoneController.text.trim()
+                : null,
+          ),
+          isAutoEntrepreneur: Value(_isAutoEntrepreneur),
+          updatedAt: Value(DateTime.now()),
+          syncStatus: const Value('pending'),
+        ),
       );
-
-      await repo.updateProfile(updatedProfile);
 
       if (mounted) {
         setState(() => _isEditing = false);

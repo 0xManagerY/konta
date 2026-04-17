@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:konta/data/local/database.dart';
+import 'package:konta/data/local/tables/tables.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
 import 'package:konta/core/utils/logger.dart';
@@ -200,26 +201,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final startOfMonth = DateTime(now.year, now.month, 1);
     final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
 
-    await for (final _ in db.select(db.invoices).watch()) {
+    await for (final _ in db.select(db.documents).watch()) {
       final invoices =
-          await (db.select(db.invoices)..where(
+          await (db.select(db.documents)..where(
                 (i) =>
-                    i.userId.equals(userId) &
-                    i.type.equals('invoice') &
+                    i.companyId.equals(userId) &
+                    i.type.equals(DocumentType.invoice.name) &
                     i.issueDate.isBiggerOrEqualValue(startOfMonth) &
                     i.issueDate.isSmallerOrEqualValue(endOfMonth) &
-                    (i.status.equals('paid') | i.status.equals('sent')),
+                    (i.status.equals(DocumentStatus.paid.name) |
+                        i.status.equals(DocumentStatus.sent.name)),
               ))
               .get();
 
       final avoirs =
-          await (db.select(db.invoices)..where(
+          await (db.select(db.documents)..where(
                 (i) =>
-                    i.userId.equals(userId) &
-                    i.type.equals('avoir') &
+                    i.companyId.equals(userId) &
+                    i.type.equals(DocumentType.creditNote.name) &
                     i.issueDate.isBiggerOrEqualValue(startOfMonth) &
                     i.issueDate.isSmallerOrEqualValue(endOfMonth) &
-                    i.status.equals('validated'),
+                    i.status.equals(DocumentStatus.paid.name),
               ))
               .get();
 
@@ -245,7 +247,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       final expenses =
           await (db.select(db.expenses)..where(
                 (e) =>
-                    e.userId.equals(userId) &
+                    e.companyId.equals(userId) &
                     e.date.isBiggerOrEqualValue(startOfMonth) &
                     e.date.isSmallerOrEqualValue(endOfMonth),
               ))
@@ -259,13 +261,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     AppDatabase db,
     String userId,
   ) async* {
-    await for (final _ in db.select(db.invoices).watch()) {
+    await for (final _ in db.select(db.documents).watch()) {
       final count =
-          await (db.select(db.invoices)..where(
+          await (db.select(db.documents)..where(
                 (i) =>
-                    i.userId.equals(userId) &
-                    i.type.equals('invoice') &
-                    (i.status.equals('sent') | i.status.equals('overdue')),
+                    i.companyId.equals(userId) &
+                    i.type.equals(DocumentType.invoice.name) &
+                    (i.status.equals(DocumentStatus.sent.name) |
+                        i.status.equals(DocumentStatus.overdue.name)),
               ))
               .get();
 

@@ -1,63 +1,70 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import 'package:konta/data/local/database.dart';
-import 'package:konta/core/utils/logger.dart';
+import 'package:konta/domain/services/log_service.dart';
 import 'package:konta/data/sync/sync_queue_helper.dart';
 
 class ExpenseRepository {
   final AppDatabase _db;
   final SyncQueueHelper _syncQueue;
+  final LogService _log = LogService();
 
   ExpenseRepository(this._db, this._syncQueue);
 
-  Future<List<Expense>> getAll(String userId) async {
-    Logger.method('ExpenseRepository', 'getAll', {'userId': userId});
-    return (_db.select(_db.expenses)
-          ..where((e) => e.userId.equals(userId))
-          ..orderBy([
-            (e) => OrderingTerm(expression: e.date, mode: OrderingMode.desc),
-          ]))
-        .get();
+  Future<List<Expense>> getAll(String companyId) async {
+    _log.debug(
+      LogTags.repo,
+      'getAll - fetching expenses',
+      data: {'companyId': companyId},
+    );
+    try {
+      final result = await _db.getExpensesByCompany(companyId);
+      _log.info(
+        LogTags.repo,
+        'getAll - completed',
+        data: {'count': result.length},
+      );
+      return result;
+    } catch (e, st) {
+      _log.error(LogTags.repo, 'getAll - failed', error: e, stack: st);
+      rethrow;
+    }
   }
 
   Future<Expense?> getById(String id) async {
-    Logger.method('ExpenseRepository', 'getById', {'id': id});
-    return (_db.select(
-      _db.expenses,
-    )..where((e) => e.id.equals(id))).getSingleOrNull();
+    _log.debug(LogTags.repo, 'getById - fetching expense', data: {'id': id});
+    try {
+      final query = _db.select(_db.expenses)..where((e) => e.id.equals(id));
+      final result = await query.getSingleOrNull();
+      final found = result != null;
+      _log.info(LogTags.repo, 'getById - completed', data: {'found': found});
+      return result;
+    } catch (e, st) {
+      _log.error(LogTags.repo, 'getById - failed', error: e, stack: st);
+      rethrow;
+    }
   }
 
   Future<void> insert(Expense expense) async {
-    Logger.method('ExpenseRepository', 'insert', {'id': expense.id});
-    Logger.db('INSERT', 'expenses', {
-      'id': expense.id,
-      'amount': expense.amount,
-    });
-    await _db
-        .into(_db.expenses)
-        .insert(
-          ExpensesCompanion(
-            id: Value(expense.id),
-            userId: Value(expense.userId),
-            category: Value(expense.category),
-            amount: Value(expense.amount),
-            tvaAmount: Value(expense.tvaAmount),
-            date: Value(expense.date),
-            description: Value(expense.description),
-            receiptUrl: Value(expense.receiptUrl),
-            receiptLocalPath: Value(expense.receiptLocalPath),
-            isDeductible: Value(expense.isDeductible),
-            createdAt: Value(expense.createdAt),
-            updatedAt: Value(expense.updatedAt),
-            syncStatus: const Value('pending'),
-          ),
-        );
-    await _syncQueue.queueInsert('expenses', expense.id);
-    Logger.success('Expense inserted', tag: 'REPO');
+    _log.debug(LogTags.repo, 'insert - starting', data: {'id': expense.id});
+    try {
+      await _db.into(_db.expenses).insert(expense);
+      await _syncQueue.queueInsert('expenses', expense.id);
+      _log.info(LogTags.repo, 'insert - completed', data: {'id': expense.id});
+    } catch (e, st) {
+      _log.error(
+        LogTags.repo,
+        'insert - failed',
+        error: e,
+        stack: st,
+        data: {'id': expense.id},
+      );
+      rethrow;
+    }
   }
 
   Future<String> create({
-    required String userId,
+    required String companyId,
     required String category,
     required double amount,
     required DateTime date,
@@ -67,146 +74,182 @@ class ExpenseRepository {
     String? receiptLocalPath,
     bool isDeductible = true,
   }) async {
-    Logger.method('ExpenseRepository', 'create', {
-      'userId': userId,
-      'amount': amount,
-    });
-    final id = const Uuid().v4();
-    final now = DateTime.now();
+    _log.debug(
+      LogTags.repo,
+      'create - starting',
+      data: {'companyId': companyId, 'amount': amount},
+    );
+    try {
+      final id = const Uuid().v4();
+      final now = DateTime.now();
 
-    Logger.db('INSERT', 'expenses', {
-      'id': id,
-      'category': category,
-      'amount': amount,
-    });
-    await _db
-        .into(_db.expenses)
-        .insert(
-          ExpensesCompanion(
-            id: Value(id),
-            userId: Value(userId),
-            category: Value(category),
-            amount: Value(amount),
-            tvaAmount: Value(tvaAmount),
-            date: Value(date),
-            description: Value(description),
-            receiptUrl: Value(receiptUrl),
-            receiptLocalPath: Value(receiptLocalPath),
-            isDeductible: Value(isDeductible),
-            createdAt: Value(now),
-            updatedAt: Value(now),
-            syncStatus: const Value('pending'),
-          ),
-        );
+      final expense = Expense(
+        id: id,
+        companyId: companyId,
+        category: category,
+        amount: amount,
+        tvaAmount: tvaAmount,
+        date: date,
+        description: description,
+        receiptUrl: receiptUrl,
+        receiptLocalPath: receiptLocalPath,
+        isDeductible: isDeductible,
+        createdAt: now,
+        updatedAt: now,
+        syncStatus: 'pending',
+      );
 
-    Logger.success('Expense created: $id', tag: 'REPO');
-    await _syncQueue.queueInsert('expenses', id);
-    return id;
+      await _db.into(_db.expenses).insert(expense);
+      await _syncQueue.queueInsert('expenses', id);
+      _log.info(LogTags.repo, 'create - completed', data: {'id': id});
+      return id;
+    } catch (e, st) {
+      _log.error(LogTags.repo, 'create - failed', error: e, stack: st);
+      rethrow;
+    }
   }
 
   Future<void> update(Expense expense) async {
-    Logger.method('ExpenseRepository', 'update', {'id': expense.id});
-    Logger.db('UPDATE', 'expenses', {'id': expense.id});
-    await (_db.update(
-      _db.expenses,
-    )..where((e) => e.id.equals(expense.id))).write(
-      ExpensesCompanion(
-        category: Value(expense.category),
-        amount: Value(expense.amount),
-        tvaAmount: Value(expense.tvaAmount),
-        date: Value(expense.date),
-        description: Value(expense.description),
-        receiptUrl: Value(expense.receiptUrl),
-        receiptLocalPath: Value(expense.receiptLocalPath),
-        isDeductible: Value(expense.isDeductible),
-        updatedAt: Value(DateTime.now()),
-        syncStatus: const Value('pending'),
-      ),
-    );
-    await _syncQueue.queueUpdate('expenses', expense.id);
-    Logger.success('Expense updated', tag: 'REPO');
+    _log.debug(LogTags.repo, 'update - starting', data: {'id': expense.id});
+    try {
+      await (_db.update(
+        _db.expenses,
+      )..where((e) => e.id.equals(expense.id))).write(
+        ExpensesCompanion(
+          category: Value(expense.category),
+          amount: Value(expense.amount),
+          tvaAmount: Value(expense.tvaAmount),
+          date: Value(expense.date),
+          description: Value(expense.description),
+          receiptUrl: Value(expense.receiptUrl),
+          receiptLocalPath: Value(expense.receiptLocalPath),
+          isDeductible: Value(expense.isDeductible),
+          updatedAt: Value(DateTime.now()),
+          syncStatus: const Value('pending'),
+        ),
+      );
+      await _syncQueue.queueUpdate('expenses', expense.id);
+      _log.info(LogTags.repo, 'update - completed', data: {'id': expense.id});
+    } catch (e, st) {
+      _log.error(
+        LogTags.repo,
+        'update - failed',
+        error: e,
+        stack: st,
+        data: {'id': expense.id},
+      );
+      rethrow;
+    }
   }
 
   Future<void> delete(String id) async {
-    Logger.method('ExpenseRepository', 'delete', {'id': id});
-    Logger.db('DELETE', 'expenses', {'id': id});
-    await _syncQueue.queueDelete('expenses', id);
-    await (_db.delete(_db.expenses)..where((e) => e.id.equals(id))).go();
-    Logger.success('Expense deleted', tag: 'REPO');
+    _log.debug(LogTags.repo, 'delete - starting', data: {'id': id});
+    try {
+      await _syncQueue.queueDelete('expenses', id);
+      await (_db.delete(_db.expenses)..where((e) => e.id.equals(id))).go();
+      _log.info(LogTags.repo, 'delete - completed', data: {'id': id});
+    } catch (e, st) {
+      _log.error(
+        LogTags.repo,
+        'delete - failed',
+        error: e,
+        stack: st,
+        data: {'id': id},
+      );
+      rethrow;
+    }
   }
 
-  Future<List<Expense>> getByMonth(String userId, int year, int month) async {
-    Logger.method('ExpenseRepository', 'getByMonth', {
-      'userId': userId,
-      'year': year,
-      'month': month,
-    });
-    final start = DateTime(year, month, 1);
-    final end = DateTime(year, month + 1, 0, 23, 59, 59);
-
-    return (_db.select(_db.expenses)
-          ..where(
-            (e) =>
-                e.userId.equals(userId) &
-                e.date.isBiggerOrEqualValue(start) &
-                e.date.isSmallerOrEqualValue(end),
-          )
-          ..orderBy([
-            (e) => OrderingTerm(expression: e.date, mode: OrderingMode.desc),
-          ]))
-        .get();
-  }
-
-  Future<List<Expense>> getByCategory(String userId, String category) async {
-    Logger.method('ExpenseRepository', 'getByCategory', {
-      'userId': userId,
-      'category': category,
-    });
-    return (_db.select(_db.expenses)
-          ..where((e) => e.userId.equals(userId) & e.category.equals(category))
-          ..orderBy([
-            (e) => OrderingTerm(expression: e.date, mode: OrderingMode.desc),
-          ]))
-        .get();
-  }
-
-  Future<double> getTotalByMonth(String userId, int year, int month) async {
-    final expenses = await getByMonth(userId, year, month);
-    final total = expenses.fold<double>(0.0, (sum, e) => sum + e.amount);
-    Logger.debug('Total by month: $total', tag: 'REPO');
-    return total;
-  }
-
-  Future<double> getDeductibleTotalByMonth(
-    String userId,
+  Future<List<Expense>> getByMonth(
+    String companyId,
     int year,
     int month,
   ) async {
-    final expenses = await getByMonth(userId, year, month);
+    _log.debug(
+      LogTags.repo,
+      'getByMonth - fetching expenses',
+      data: {'companyId': companyId, 'year': year, 'month': month},
+    );
+    try {
+      final result = await _db.getExpensesByMonth(companyId, year, month);
+      _log.info(
+        LogTags.repo,
+        'getByMonth - completed',
+        data: {'count': result.length},
+      );
+      return result;
+    } catch (e, st) {
+      _log.error(LogTags.repo, 'getByMonth - failed', error: e, stack: st);
+      rethrow;
+    }
+  }
+
+  Future<List<Expense>> getByCategory(String companyId, String category) async {
+    _log.debug(
+      LogTags.repo,
+      'getByCategory - fetching expenses',
+      data: {'companyId': companyId, 'category': category},
+    );
+    try {
+      final result =
+          (_db.select(_db.expenses)
+                ..where(
+                  (e) =>
+                      e.companyId.equals(companyId) &
+                      e.category.equals(category),
+                )
+                ..orderBy([(e) => OrderingTerm.desc(e.date)]))
+              .get();
+      _log.info(LogTags.repo, 'getByCategory - completed');
+      return result;
+    } catch (e, st) {
+      _log.error(LogTags.repo, 'getByCategory - failed', error: e, stack: st);
+      rethrow;
+    }
+  }
+
+  Future<double> getTotalByMonth(String companyId, int year, int month) async {
+    return _db.getTotalExpensesByMonth(companyId, year, month);
+  }
+
+  Future<double> getDeductibleTotalByMonth(
+    String companyId,
+    int year,
+    int month,
+  ) async {
+    final expenses = await getByMonth(companyId, year, month);
     final total = expenses
         .where((e) => e.isDeductible)
         .fold<double>(0.0, (sum, e) => sum + e.amount);
-    Logger.debug('Deductible total by month: $total', tag: 'REPO');
+    _log.debug(
+      LogTags.repo,
+      'getDeductibleTotalByMonth - result',
+      data: {'total': total},
+    );
     return total;
   }
 
   Future<Map<String, double>> getTotalsByCategory(
-    String userId,
+    String companyId,
     int year,
     int month,
   ) async {
-    final expenses = await getByMonth(userId, year, month);
+    final expenses = await getByMonth(companyId, year, month);
     final map = <String, double>{};
     for (final e in expenses) {
       map[e.category] = (map[e.category] ?? 0.0) + e.amount;
     }
-    Logger.debug('Totals by category: $map', tag: 'REPO');
+    _log.debug(
+      LogTags.repo,
+      'getTotalsByCategory - result',
+      data: {'categories': map.length},
+    );
     return map;
   }
 
   Future<String> generateId() async {
     final id = const Uuid().v4();
-    Logger.debug('Generated ID: $id', tag: 'REPO');
+    _log.debug(LogTags.repo, 'generateId - generated', data: {'id': id});
     return id;
   }
 }

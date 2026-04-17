@@ -4,10 +4,12 @@ import 'package:konta/data/local/database.dart';
 import 'package:konta/data/repositories/payment_repository.dart';
 import 'package:konta/data/sync/sync_queue_helper.dart';
 import 'package:konta/presentation/providers/database_provider.dart';
-import 'package:konta/core/utils/logger.dart';
+import 'package:konta/domain/services/log_service.dart';
+
+final _log = LogService();
 
 final paymentRepositoryProvider = Provider<PaymentRepository>((ref) {
-  Logger.method('Provider', 'paymentRepositoryProvider', {'init': true});
+  _log.debug('Provider', 'paymentRepositoryProvider', data: {'init': true});
   final db = ref.watch(databaseProvider);
   final syncQueue = ref.watch(syncQueueHelperProvider);
   return PaymentRepository(db, syncQueue);
@@ -15,17 +17,16 @@ final paymentRepositoryProvider = Provider<PaymentRepository>((ref) {
 
 final paymentsForInvoiceProvider = StreamProvider.family<List<Payment>, String>(
   (ref, invoiceId) {
-    Logger.method('Provider', 'paymentsForInvoiceProvider', {
-      'invoiceId': invoiceId,
-    });
+    _log.debug(
+      'Provider',
+      'paymentsForInvoiceProvider',
+      data: {'invoiceId': invoiceId},
+    );
     final db = ref.watch(databaseProvider);
 
-    Logger.debug(
-      'Watching payments for invoice: $invoiceId',
-      tag: 'PAYMENT_PROVIDER',
-    );
+    _log.debug('Provider', 'Watching payments for invoice: $invoiceId');
     return (db.select(db.payments)
-          ..where((p) => p.invoiceId.equals(invoiceId))
+          ..where((p) => p.documentId.equals(invoiceId))
           ..orderBy([
             (p) => OrderingTerm(
               expression: p.paymentDate,
@@ -37,11 +38,11 @@ final paymentsForInvoiceProvider = StreamProvider.family<List<Payment>, String>(
 );
 
 final checkRemindersProvider = StreamProvider<List<Payment>>((ref) {
-  Logger.method('Provider', 'checkRemindersProvider', {'watch': true});
+  _log.debug('Provider', 'checkRemindersProvider', data: {'watch': true});
   final db = ref.watch(databaseProvider);
   final now = DateTime.now();
 
-  Logger.debug('Watching check reminders from: $now', tag: 'PAYMENT_PROVIDER');
+  _log.debug('Provider', 'Watching check reminders from: $now');
   return (db.select(db.payments)
         ..where(
           (p) =>
@@ -54,11 +55,11 @@ final checkRemindersProvider = StreamProvider<List<Payment>>((ref) {
 });
 
 final overdueChecksProvider = StreamProvider<List<Payment>>((ref) {
-  Logger.method('Provider', 'overdueChecksProvider', {'watch': true});
+  _log.debug('Provider', 'overdueChecksProvider', data: {'watch': true});
   final db = ref.watch(databaseProvider);
   final now = DateTime.now();
 
-  Logger.debug('Watching overdue checks before: $now', tag: 'PAYMENT_PROVIDER');
+  _log.debug('Provider', 'Watching overdue checks before: $now');
   return (db.select(db.payments)
         ..where(
           (p) =>

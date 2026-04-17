@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:konta/core/utils/logger.dart';
 import 'package:konta/presentation/providers/settings_provider.dart';
 
@@ -124,6 +125,14 @@ class SettingsScreen extends ConsumerWidget {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _showComingSoon(context),
                 ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.description),
+                  title: const Text('Modèles de documents'),
+                  subtitle: const Text('Personnaliser les modèles de factures'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/settings/templates'),
+                ),
               ],
             ),
           ),
@@ -136,7 +145,7 @@ class SettingsScreen extends ConsumerWidget {
                 const ListTile(
                   leading: Icon(Icons.info_outline),
                   title: Text('Version'),
-                  subtitle: Text('v0.1.3'),
+                  subtitle: Text('v0.3.0'),
                 ),
                 const Divider(height: 1),
                 ListTile(
@@ -212,28 +221,48 @@ class SettingsScreen extends ConsumerWidget {
     Logger.ui('SettingsScreen', 'SHOW_LANGUAGE_DIALOG');
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Langue'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            RadioListTile<String>(
-              title: const Text('Français'),
-              value: 'fr',
-              groupValue: settings.locale.languageCode,
-              onChanged: (value) {
-                ref.read(settingsProvider.notifier).setLocale(Locale(value!));
-                Navigator.pop(context);
-              },
+            SelectionArea(
+              child: ListTile(
+                leading: Icon(
+                  settings.locale.languageCode == 'fr'
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  color: settings.locale.languageCode == 'fr'
+                      ? Theme.of(context).primaryColor
+                      : null,
+                ),
+                title: const Text('Français'),
+                onTap: () {
+                  ref
+                      .read(settingsProvider.notifier)
+                      .setLocale(const Locale('fr'));
+                  Navigator.pop(dialogContext);
+                },
+              ),
             ),
-            RadioListTile<String>(
-              title: const Text('العربية (Arabe)'),
-              value: 'ar',
-              groupValue: settings.locale.languageCode,
-              onChanged: (value) {
-                ref.read(settingsProvider.notifier).setLocale(Locale(value!));
-                Navigator.pop(context);
-              },
+            SelectionArea(
+              child: ListTile(
+                leading: Icon(
+                  settings.locale.languageCode == 'ar'
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  color: settings.locale.languageCode == 'ar'
+                      ? Theme.of(context).primaryColor
+                      : null,
+                ),
+                title: const Text('العربية (Arabe)'),
+                onTap: () {
+                  ref
+                      .read(settingsProvider.notifier)
+                      .setLocale(const Locale('ar'));
+                  Navigator.pop(dialogContext);
+                },
+              ),
             ),
           ],
         ),
@@ -249,40 +278,70 @@ class SettingsScreen extends ConsumerWidget {
     Logger.ui('SettingsScreen', 'SHOW_THEME_DIALOG');
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Thème'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            RadioListTile<ThemeMode>(
-              title: const Text('Clair'),
-              value: ThemeMode.light,
-              groupValue: settings.themeMode,
-              onChanged: (value) {
-                Logger.ui('SettingsScreen', 'THEME_CHANGED', 'theme: light');
-                ref.read(settingsProvider.notifier).setThemeMode(value!);
-                Navigator.pop(context);
-              },
+            SelectionArea(
+              child: ListTile(
+                leading: Icon(
+                  settings.themeMode == ThemeMode.light
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  color: settings.themeMode == ThemeMode.light
+                      ? Theme.of(context).primaryColor
+                      : null,
+                ),
+                title: const Text('Clair'),
+                onTap: () {
+                  Logger.ui('SettingsScreen', 'THEME_CHANGED', 'theme: light');
+                  ref
+                      .read(settingsProvider.notifier)
+                      .setThemeMode(ThemeMode.light);
+                  Navigator.pop(dialogContext);
+                },
+              ),
             ),
-            RadioListTile<ThemeMode>(
-              title: const Text('Sombre'),
-              value: ThemeMode.dark,
-              groupValue: settings.themeMode,
-              onChanged: (value) {
-                Logger.ui('SettingsScreen', 'THEME_CHANGED', 'theme: dark');
-                ref.read(settingsProvider.notifier).setThemeMode(value!);
-                Navigator.pop(context);
-              },
+            SelectionArea(
+              child: ListTile(
+                leading: Icon(
+                  settings.themeMode == ThemeMode.dark
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  color: settings.themeMode == ThemeMode.dark
+                      ? Theme.of(context).primaryColor
+                      : null,
+                ),
+                title: const Text('Sombre'),
+                onTap: () {
+                  Logger.ui('SettingsScreen', 'THEME_CHANGED', 'theme: dark');
+                  ref
+                      .read(settingsProvider.notifier)
+                      .setThemeMode(ThemeMode.dark);
+                  Navigator.pop(dialogContext);
+                },
+              ),
             ),
-            RadioListTile<ThemeMode>(
-              title: const Text('Système'),
-              value: ThemeMode.system,
-              groupValue: settings.themeMode,
-              onChanged: (value) {
-                Logger.ui('SettingsScreen', 'THEME_CHANGED', 'theme: system');
-                ref.read(settingsProvider.notifier).setThemeMode(value!);
-                Navigator.pop(context);
-              },
+            SelectionArea(
+              child: ListTile(
+                leading: Icon(
+                  settings.themeMode == ThemeMode.system
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  color: settings.themeMode == ThemeMode.system
+                      ? Theme.of(context).primaryColor
+                      : null,
+                ),
+                title: const Text('Système'),
+                onTap: () {
+                  Logger.ui('SettingsScreen', 'THEME_CHANGED', 'theme: system');
+                  ref
+                      .read(settingsProvider.notifier)
+                      .setThemeMode(ThemeMode.system);
+                  Navigator.pop(dialogContext);
+                },
+              ),
             ),
           ],
         ),

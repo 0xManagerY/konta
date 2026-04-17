@@ -99,7 +99,7 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
     );
   }
 
-  Widget _buildCustomerCard(Customer customer) {
+  Widget _buildCustomerCard(Contact customer) {
     final phones = _parseJsonList(customer.phones);
     final emails = _parseJsonList(customer.emails);
 

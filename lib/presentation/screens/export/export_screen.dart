@@ -6,6 +6,8 @@ import 'package:konta/presentation/providers/database_provider.dart';
 import 'package:konta/presentation/providers/invoice_provider.dart';
 import 'package:konta/presentation/providers/expense_provider.dart';
 import 'package:konta/presentation/providers/customer_provider.dart';
+import 'package:konta/presentation/providers/team_provider.dart';
+import 'package:konta/data/repositories/company_repository.dart';
 import 'package:konta/data/remote/supabase_service.dart';
 
 class ExportScreen extends ConsumerStatefulWidget {
@@ -179,7 +181,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     if (userId == null) return;
 
     final profile = await (db.select(
-      db.profiles,
+      db.userProfiles,
     )..where((p) => p.id.equals(userId))).getSingleOrNull();
 
     if (profile == null) {
@@ -194,18 +196,24 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     setState(() => _isExporting = true);
 
     try {
+      final db = ref.read(databaseProvider);
+      final syncQueue = ref.read(syncQueueHelperProvider);
       final invoiceRepo = ref.read(invoiceRepositoryProvider);
       final expenseRepo = ref.read(expenseRepositoryProvider);
       final customerRepo = ref.read(customerRepositoryProvider);
+      final companyRepo = CompanyRepository(db, syncQueue);
 
       final exportService = ExportService(
         invoiceRepo,
         expenseRepo,
         customerRepo,
+        companyRepo,
+        db,
+        syncQueue,
       );
 
       final exportPath = await exportService.exportMonthlyBundle(
-        company: profile,
+        profile: profile,
         year: _selectedMonth.year,
         month: _selectedMonth.month,
       );
